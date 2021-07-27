@@ -1,19 +1,35 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Master\MasterDataController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
-|
-*/
+Route::get('apps', [\App\Http\Controllers\AppController::class, 'frontData']);
+Route::post('/auth/register', [AuthController::class, 'register']);
+Route::post('/auth/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:api')->get('/user', function (Request $request) {
-    return $request->user();
+Route::post('callback', [\App\Http\Controllers\CherryApprovalController::class, 'callback']);
+
+Route::group(['middleware' => ['auth:sanctum']], function () {
+    Route::get('/me', [AuthController::class, 'user']);
+    Route::get('/table', [HomeController::class, 'table']);
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+    Route::get('item-master-data', [MasterDataController::class, 'getItemMasterData']);
+    Route::get('latest-req-item', [MasterDataController::class, 'getLatestRequest']);
+    Route::get('list-latest-req', [MasterDataController::class, 'getListRequest']);
+
+    Route::prefix('reservation')
+        ->group(__DIR__ . '/transaction/reservation.php');
+
+    Route::group([], __DIR__ . '/transaction/inventory.php');
+
+    Route::group(['prefix' => 'master'], function () {
+        Route::prefix('user')
+            ->group(__DIR__ . '/master/user.php');
+
+        Route::apiResource('apps', \App\Http\Controllers\AppController::class);
+        Route::apiResource('company', \App\Http\Controllers\Master\MasterCompanyController::class);
+    });
 });

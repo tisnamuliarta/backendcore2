@@ -91,6 +91,36 @@ return [
             'prefix_indexes' => true,
         ],
 
+        'sqlsrv2' => [
+            'driver' => 'sqlsrv',
+            'url' => env('DATABASE_URL'),
+            'host' => env('DB_HOST3', 'localhost'),
+            'port' => env('DB_PORT3', '1433'),
+            'database' => env('DB_DATABASE3', 'forge'),
+            'username' => env('DB_USERNAME3', 'forge'),
+            'password' => env('DB_PASSWORD3', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+        ],
+
+        'laravelOdbc' => [
+            'driver' => 'odbc',
+            'dsn' => env('LARAVEL_ODBC_DSN'),
+            'database' => env('LARAVEL_ODBC_DATABASE'),
+            'host' => env('LARAVEL_ODBC_HOST'),
+            'username' => env('LARAVEL_ODBC_USERNAME'),
+            'password' => env('LARAVEL_ODBC_PASSWORD'),
+            'prefix' => env('LARAVEL_ODBC_DATABASE'),
+            'options' => [
+                'processor' => App\Processors\CustomProcessor::class,
+                'grammar' => [
+                    'query' => App\Grammars\CustomQueryGrammar::class,
+//                    'schema' => App\Grammars\CustomSchemaGrammar::class,
+                ]
+            ]
+        ],
+
     ],
 
     /*
