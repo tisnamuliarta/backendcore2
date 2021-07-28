@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Resv\ReservationHeader;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -11,38 +12,44 @@ class HomeController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function table(Request $request)
+    public function homeData(Request $request): \Illuminate\Http\JsonResponse
     {
+        $count_draft = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "-")->count();
+        $count_pending = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "P")->count();
+        $count_reject = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "N")->count();
+        $count_approve = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "Y")->count();
+
         return response()->json([
-            'columns' => [
+            "rows" => [
                 [
-                    'field' => 'id',
-                    'headerName' => 'ID',
-                    'width' => 90
+                    "text" => "Draft",
+                    'value' => $count_draft,
                 ],
                 [
-                    'field' => 'firstName',
-                    'headerName' => 'First name',
-                    'width' => 150
+                    "text" => "Pending",
+                    'value' => $count_pending,
                 ],
                 [
-                    'field' => 'lastName',
-                    'headerName' => 'Last name',
-                    'width' => 150
-                ]
-            ],
-            'rows' => [
-                [
-                    'id' => 1,
-                    'lastName' => 'Snow',
-                    'FirstName' => 'Jon'
+                    "text" => "Rejected",
+                    'value' => $count_reject,
                 ],
                 [
-                    'id' => 2,
-                    'lastName' => 'Lannister',
-                    'FirstName' => 'Cersei'
+                    "text" => "Approved",
+                    'value' => $count_approve,
                 ]
             ]
         ]);
+    }
+
+
+    /**
+     * @param $request
+     *
+     * @return mixed
+     */
+    protected function copyQuery($request)
+    {
+        return ReservationHeader::where("Department", "=", $request->user()->department)
+            ->where("RESV_H.CreatedBy", "=", $request->user()->username);
     }
 }

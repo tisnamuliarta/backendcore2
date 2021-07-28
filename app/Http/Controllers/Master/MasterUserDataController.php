@@ -59,14 +59,17 @@ class MasterUserDataController extends Controller
     {
         $user_id = $request->user()->username;
         //$form = json_decode($request->form);
-        $user_company = UserCompany::where("user_company.user_id", $user_id)
-            ->leftJoin('company', 'company.id', 'user_company.company_id')
+        $user_company = UserCompany::where("user_companies.user_id", $user_id)
+            ->leftJoin('companies as company', 'company.id', 'user_companies.company_id')
             ->select('db_code', 'db_name')
             ->get();
+
         $department = substr($request->user()->department, 0, 4);
+
         $user_list = ViewEmployee::where('Department', 'LIKE', '%' . $department . '%')
             ->orderBy('Name')
             ->get();
+
         $user_wh = UserWhs::where("user_id", $user_id)->get();
         $result = [];
 
@@ -89,12 +92,15 @@ class MasterUserDataController extends Controller
                 "user_id" => $item->Nik,
             ];
         }
+
         foreach ($user_company as $item) {
             $result["items"][] = $item->db_code;
         }
+
         foreach ($user_wh as $item) {
             $result['itemUserWhs'][] = $item->whs_code;
         }
+
         return response()->json($result);
     }
 

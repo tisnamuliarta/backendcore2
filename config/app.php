@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'db_schema' => env('DB_SCHEMA', 'IMIP_ERESV'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

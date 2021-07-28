@@ -24,13 +24,9 @@ class MasterDataController extends Controller
         $connect = $this->connectHana();
 
         $options = json_decode($request->options);
-        $year_local = date('Y');
         $pages = isset($options->page) ? (int)$options->page : 1;
-        $selectedItem = isset($request->itemGroups) ? $request->itemGroups : null;
-        $filter = isset($request->filter) ? (string)$request->filter : $year_local;
+        $selectedItem = $request->itemGroups ?? null;
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 10;
-        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "U_ItemCode";
-        $order = isset($options->sortDesc[0]) ? (string)$options->sortDesc[0] : "desc";
         $form = json_decode($request->form);
         $search = isset($request->search) ? (string)$request->search : "";
         $select_type = isset($request->searchType) ? (string)$request->searchType : null;
@@ -39,9 +35,11 @@ class MasterDataController extends Controller
 
         $item_whs = '';
         $item_itm = '';
+
         $user_whs = UserWhs::where("user_id", "=", $request->user()->username)->get();
         $user_item_code = UserItmGrp::where("user_id", "=", $request->user()->username)->get();
         $user_company = UserCompany::where("user_id", "=", $request->user()->username)->first();
+
         foreach ($user_whs as $user_wh) {
             $item_whs .= "'$user_wh->whs_code',";
         }
