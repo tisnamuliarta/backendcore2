@@ -83,13 +83,7 @@ class MasterUserDataController extends Controller
             $result["userDivision"][] = [
                 "U_UserName" => $item->Name,
                 "U_NIK" => $item->Nik,
-                "user_id" => $item->Nik,
                 "Division" => $item->Department,
-            ];
-
-            $result["user"][] = [
-                "U_UserName" => $item->Nik,
-                "user_id" => $item->Nik,
             ];
         }
 

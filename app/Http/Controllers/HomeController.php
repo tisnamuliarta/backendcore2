@@ -52,4 +52,48 @@ class HomeController extends Controller
         return ReservationHeader::where("Department", "=", $request->user()->department)
             ->where("RESV_H.CreatedBy", "=", $request->user()->username);
     }
+
+    /**
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function menus(Request $request)
+    {
+        $permissions = $request->user()
+            ->getAllPermissions()
+            ->where('parent_id', '=', '0')
+            ->whereIn('app_name', [$request->appName, 'All']);
+
+        $array = [];
+        foreach ($permissions as $permission) {
+            $children = $request->user()
+                ->getAllPermissions()
+                ->where('parent_id', '=', $permission->id)
+                ->whereIn('app_name', [$request->appName, 'All']);
+
+            $array_child = [];
+            $prev_name = '';
+            foreach ($children as $child) {
+                if ($prev_name != $child->menu_name) {
+                    $array_child[] = [
+                        'menu' => $child->menu_name,
+                        'icon' => $child->icon,
+                        'route_name' => $child->route_name,
+                    ];
+                    
+                    $prev_name = $child->menu_name;
+                }
+            }
+
+            $array[] = [
+                'menu' => $permission->menu_name,
+                'icon' => $permission->icon,
+                'route_name' => $permission->route_name,
+                'children' => $array_child
+            ];
+        }
+        return $this->success([
+            'menus' => $array
+        ]);
+    }
 }

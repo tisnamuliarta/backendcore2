@@ -3,21 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
-use App\Models\Menu;
 use App\Models\User;
 use App\Models\UserCompany;
 use App\Models\UserItmGrp;
-use App\Models\UserMenu;
 use App\Models\UserWhs;
-use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Spatie\Permission\Models\Role;
+use App\Models\Role;
+use App\Models\Permission;
 
 class AuthController extends Controller
 {
-    use ApiResponse;
 
     /**
      * @param Request $request
@@ -90,8 +87,6 @@ class AuthController extends Controller
                 return $this->error('Credentials not match', 401);
             }
 
-            $this->assignMenuToUser($username, $app_name);
-
             $company = $this->assignUserCompany($username);
 
             $this->assignRolePermissionToUser($username);
@@ -142,37 +137,6 @@ class AuthController extends Controller
         return $user;
     }
 
-    /**
-     * @param $user_id
-     * @param $value
-     */
-    protected function insertUserMenu($user_id, $value)
-    {
-        if (UserMenu::where('user_id', '=', $user_id)
-                ->where('menu_id', '=', $value->id)
-                ->count() < 1
-        ) {
-            UserMenu::create([
-                'user_id' => $user_id,
-                'menu_id' => $value->id
-            ]);
-        }
-    }
-
-    /**
-     * @param $username
-     * @param $user_id
-     * @param $app_name
-     */
-    protected function assignMenuToUser($username, $app_name)
-    {
-        if ($username == '1') {
-            $menu = Menu::all();
-            foreach ($menu as $value) {
-                $this->insertUserMenu($username, $value);
-            }
-        }
-    }
 
     /**
      * @param $username
@@ -314,12 +278,16 @@ class AuthController extends Controller
     /**
      * @param $username
      */
-    private function assignRolePermissionToUser($username)
+    protected function assignRolePermissionToUser($username)
     {
-        if ($username == '1') {
+        if ($username == '88101989') {
             $role = Role::findByName('Superuser');
-            $user = User::where('id', $username)->first();
+            $permissions = Permission::all();
+            $user = User::where('username', $username)->first();
             $user->assignRole($role);
+            foreach ($permissions as $permission) {
+                $user->givePermissionTo($permission->name);
+            }
         }
     }
 }

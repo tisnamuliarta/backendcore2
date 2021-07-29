@@ -139,6 +139,7 @@ class TransactionApprovalController extends Controller
         $arr_result = [];
         foreach ($list_code->collect()['Data'] as $datum) {
             $arr_result[] = [
+                'Keys' => $datum['Code'],
                 'ApproverEmployeeName' => $datum['ApproverEmployeeName'],
                 'StatusId' => $datum['StatusId'],
                 'ResponseDate' => ($datum['ResponseDate']) ?

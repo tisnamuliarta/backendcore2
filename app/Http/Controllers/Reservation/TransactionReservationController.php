@@ -700,8 +700,10 @@ class TransactionReservationController extends Controller
             $own_db_name = env('LARAVEL_ODBC_USERNAME');
             $data_details = ReservationDetails::where("U_DocEntry", "=", $header['U_DocEntry'])->get();
             // dd($data_details);
-            $user_company = UserCompany::leftJoin('company', 'company.id', 'user_company.company_id')
-                ->where("db_code", "=", $header['Company'])->first();
+            $user_company = UserCompany::leftJoin('companies', 'companies.id', 'user_companies.company_id')
+                ->where("db_code", "=", $header['Company'])
+                ->first();
+
             $db_name = $user_company->db_code;
             $arr = [];
             foreach ($data_details as $key => $detail) {

@@ -4,13 +4,15 @@ namespace Database\Seeders;
 
 use App\Models\Application;
 use App\Models\Company;
-use App\Models\Menu;
+use App\Traits\RolePermission;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Permission;
+use App\Models\Role;
 
 class MenuSeeder extends Seeder
 {
+    use RolePermission;
+
     /**
      * Run the database seeds.
      *
@@ -18,111 +20,176 @@ class MenuSeeder extends Seeder
      */
     public function run()
     {
-        Menu::create([
-            'menu' => 'Settings',
-            'parent_id' => 0,
-            'icon' => 'mdi-cog',
-            'icon_alt' => 'mdi-menu-down',
-            'has_child' => 'Y',
-            'has_route' => 'N',
-            'order_line' => '1'
-        ]);
+        $permissions = [
+            [
+                'name' => 'Settings',
+                'app_name' => 'All',
+                'menu_name' => 'Settings',
+                'parent_id' => 0,
+                'icon' => 'mdi-cog',
+                'route_name' => null,
+                'has_child' => 'Y',
+                'has_route' => 'N',
+                'order_line' => '1',
+                'is_crud' => 'N'
+            ],
+            [
+                'name' => 'Reservation',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Reservation',
+                'parent_id' => 0,
+                'icon' => 'mdi-store',
+                'route_name' => null,
+                'has_child' => 'Y',
+                'has_route' => 'N',
+                'order_line' => '2',
+                'is_crud' => 'N'
+            ],
+            [
+                'name' => 'Inventory',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Inventory',
+                'parent_id' => 0,
+                'icon' => 'mdi-file-document',
+                'route_name' => null,
+                'has_child' => 'Y',
+                'has_route' => 'N',
+                'order_line' => '3',
+                'is_crud' => 'N'
+            ],
+            [
+                'name' => 'Reservation Request',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Reservation Request',
+                'parent_id' => 2,
+                'icon' => 'mdi-file-document-multiple',
+                'route_name' => '/reservation/request',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '2.1',
+                'is_crud' => 'Y'
+            ],
+            [
+                'name' => 'Reservation Approval',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Reservation Approval',
+                'parent_id' => 2,
+                'icon' => 'mdi-file-document-multiple',
+                'route_name' => '/reservation/approval',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '2.2',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'My Reservation',
-            'app_name' => 'E-RESERVATION',
-            'parent_id' => 0,
-            'icon' => 'mdi-menu-up',
-            'icon_alt' => 'mdi-menu-down',
-            'has_child' => 'Y',
-            'has_route' => 'N',
-            'order_line' => '2'
-        ]);
+            [
+                'name' => 'Request Item',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Request Item',
+                'parent_id' => 2,
+                'icon' => 'mdi-file-document-multiple',
+                'route_name' => '/reservation/requestitem',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '2.3',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Inventory',
-            'app_name' => 'E-RESERVATION',
-            'parent_id' => 0,
-            'icon' => 'mdi-file-document',
-            'icon_alt' => 'mdi-menu-down',
-            'has_child' => 'Y',
-            'has_route' => 'N',
-            'order_line' => '3'
-        ]);
+            [
+                'name' => 'Users',
+                'app_name' => 'All',
+                'menu_name' => 'Users',
+                'parent_id' => 1,
+                'icon' => 'mdi-account-circle-outline',
+                'route_name' => '/master/users',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '1.1',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Users',
-            'parent_id' => 1,
-            'icon' => 'mdi-account-circle-outline',
-            'route_name' => '/master/user',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '1.1'
-        ]);
+            [
+                'name' => 'Roles',
+                'app_name' => 'All',
+                'menu_name' => 'Roles',
+                'parent_id' => 1,
+                'icon' => 'mdi-file-tree',
+                'route_name' => '/master/roles',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '1.2',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Menu',
-            'parent_id' => 1,
-            'icon' => 'mdi-file-tree',
-            'route_name' => '/master/menu',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '1.2'
-        ]);
+            [
+                'name' => 'Permission',
+                'app_name' => 'All',
+                'menu_name' => 'Permission',
+                'parent_id' => 1,
+                'icon' => 'mdi-file-tree',
+                'route_name' => '/master/permission',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '1.2',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Master Role',
-            'parent_id' => 1,
-            'icon' => 'mdi-file-tree',
-            'route_name' => '/master/role',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '1.3'
-        ]);
+            [
+                'name' => 'Goods Issue',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Goods Issue',
+                'parent_id' => 3,
+                'icon' => 'mdi-file-document',
+                'route_name' => '/inventory/goodissue',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '3.1',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Reservation Request',
-            'app_name' => 'E-RESERVATION',
-            'parent_id' => 2,
-            'icon' => 'mdi-file-document-multiple',
-            'route_name' => '/reservations',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '2.1'
-        ]);
+            [
+                'name' => 'Cancel Goods Issue',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Cancel Goods Issue',
+                'parent_id' => 3,
+                'icon' => 'mdi-file-document',
+                'route_name' => '/inventory/cancelgi',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '3.2',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Approval List',
-            'app_name' => 'E-RESERVATION',
-            'parent_id' => 2,
-            'icon' => 'mdi-file-document-multiple',
-            'route_name' => '/approval-list',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '2.2'
-        ]);
+            [
+                'name' => 'View Goods Issue',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'View Goods Issue',
+                'parent_id' => 3,
+                'icon' => 'mdi-file-document',
+                'route_name' => '/inventory/viewgi',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '3.3',
+                'is_crud' => 'Y'
+            ],
 
-        Menu::create([
-            'menu' => 'Good Issues',
-            'app_name' => 'E-RESERVATION',
-            'parent_id' => 3,
-            'icon' => 'mdi-file-document',
-            'route_name' => '/cancelgoodissues',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '3.1'
-        ]);
+            [
+                'name' => 'Master Item',
+                'app_name' => 'E-RESERVATION',
+                'menu_name' => 'Master Item',
+                'parent_id' => 3,
+                'icon' => 'mdi-file-document',
+                'route_name' => '/inventory/items',
+                'has_child' => 'N',
+                'has_route' => 'Y',
+                'order_line' => '3.3',
+                'is_crud' => 'Y'
+            ],
+        ];
 
-        Menu::create([
-            'menu' => 'Item Master Data',
-            'app_name' => 'E-RESERVATION',
-            'parent_id' => 3,
-            'icon' => 'mdi-account-circle-outline',
-            'route_name' => '/items',
-            'has_child' => 'N',
-            'has_route' => 'Y',
-            'order_line' => '3.2'
-        ]);
+        foreach ($permissions as $permission) {
+            $this->generatePermission((object)$permission);
+        }
 
         $list_apps = [
             [
@@ -155,36 +222,7 @@ class MenuSeeder extends Seeder
         ]);
 
 
-        $permissions = [
-            'role-list',
-            'role-create',
-            'role-edit',
-            'role-delete',
-            'permission-list',
-            'permission-create',
-            'permission-edit',
-            'permission-delete'
-        ];
-
-        foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
-        }
-
-        $permissions = Permission::whereIn('name', [
-            'role-list',
-            'role-create',
-            'role-edit',
-            'role-delete',
-            'app-list',
-            'app-create',
-            'app-edit',
-            'app-delete',
-            'permission-list',
-            'permission-create',
-            'permission-edit',
-            'permission-delete'
-        ])
-            ->pluck('id', 'id')
+        $permissions = Permission::pluck('id', 'id')
             ->all();
 
         $superuser = Role::where('name', '=', 'Superuser')->first();

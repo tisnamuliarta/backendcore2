@@ -15,6 +15,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('/me', [AuthController::class, 'user']);
     Route::get('/table', [HomeController::class, 'table']);
     Route::get('home-data', [HomeController::class, 'homeData']);
+    Route::get('menus', [HomeController::class, 'menus']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     Route::get('item-master-data', [MasterDataController::class, 'getItemMasterData']);

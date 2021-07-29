@@ -3,13 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
-use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 
 class AppController extends Controller
 {
-    use ApiResponse;
-
     /**
      * @return \Illuminate\Http\JsonResponse
      */

@@ -23,6 +23,13 @@ class User extends Authenticatable
         'email',
         'password',
         'username',
+        'cherry_token',
+        'department',
+        'company',
+        'position',
+        'location',
+        'company_code',
+        'employee_code',
     ];
 
     /**
@@ -43,4 +50,12 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function company(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserCompany::class, 'U_UserID', 'U_UserID');
+    }
 }
