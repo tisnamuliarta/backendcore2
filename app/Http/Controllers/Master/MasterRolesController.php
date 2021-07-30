@@ -14,16 +14,15 @@ class MasterRolesController extends Controller
     /**
      * Display a listing of the resource.
      *
+     * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $options = json_decode($request->options);
-        $year_local = date('Y');
         $pages = isset($options->page) ? (int)$options->page : 1;
-        $filter = isset($request->filter) ? (string)$request->filter : $year_local;
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 20;
-        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "U_Name";
+        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "name";
         $order = isset($options->sortDesc[0]) ? (string)$options->sortDesc[0] : "desc";
         $offset = ($pages - 1) * $row_data;
 
@@ -41,16 +40,16 @@ class MasterRolesController extends Controller
         $arr_rows = [];
         foreach ($all_rows as $item) {
             $arr_rows[] = [
-                "U_Name" => $item->U_Name,
-                "U_DocEntry" => $item->U_DocEntry,
+                "name" => $item->name,
+                "id" => $item->id,
             ];
         }
 
         $result = array_merge($result, [
             "rows" => $all_data,
-            "all_data" => $arr_rows
+            "simple" => $arr_rows
         ]);
-        return response()->json($result);
+        return $this->success($result);
     }
 
     /**
@@ -62,29 +61,25 @@ class MasterRolesController extends Controller
     public function store(Request $request): \Illuminate\Http\JsonResponse
     {
         if ($this->validation($request)) {
-            return response()->json([
-                "errors" => true,
-                "validHeader" => true,
-                "message" => $this->validation($request)
+            return $this->error($this->validation($request), 422, [
+                "errors" => true
             ]);
         }
 
         $form = $request->form;
         try {
-            $data = new Role();
-            $data->U_Name = $form['U_Name'];
-            $data->U_Desc = $form['U_Desc'];
-            $data->U_Locked = $form['U_Locked'];
-            $data->save();
+            $data = [
+                'name' => $form['name'],
+                'description' => $form['description'],
+            ];
+            Role::create($data);
 
-            return response()->json([
-                "errors" => false,
-                "message" => "Data inserted!"
-            ]);
+            return $this->success([
+                "errors" => false
+            ], 'Data inserted!');
         } catch (\Exception $exception) {
-            return response()->json([
+            return $this->error($exception->getMessage(), 422, [
                 "errors" => true,
-                "message" => $exception->getMessage(),
                 "Trace" => $exception->getTrace()
             ]);
         }
@@ -97,14 +92,13 @@ class MasterRolesController extends Controller
     protected function validation($request)
     {
         $messages = [
-            'form.U_Name' => 'Name is required!',
-            'form.U_Desc' => 'Description Status is required!',
+            'form.name' => 'Name is required!',
+            'form.description' => 'Description Status is required!',
         ];
 
         $validator = Validator::make($request->all(), [
-            'form.U_Name' => 'required',
-            'form.U_Desc' => 'required',
-            'form.U_DeptEntry' => 'required',
+            'form.name' => 'required',
+            'form.description' => 'required',
         ], $messages);
 
         $string_data = "";
@@ -128,8 +122,9 @@ class MasterRolesController extends Controller
      */
     public function show($id): \Illuminate\Http\JsonResponse
     {
-        $data = Role::where("U_DocEntry", "=", $id)->get();
-        return response()->json([
+        $data = Role::where("id", "=", $id)->get();
+
+        return $this->success([
             'rows' => $data
         ]);
     }
@@ -144,29 +139,26 @@ class MasterRolesController extends Controller
     public function update(Request $request, $id)
     {
         if ($this->validation($request)) {
-            return response()->json([
-                "errors" => true,
-                "validHeader" => true,
-                "message" => $this->validation($request)
+            return $this->error($this->validation($request), 422, [
+                "errors" => true
             ]);
         }
 
         $form = $request->form;
         try {
-            $data = Role::where("U_DocEntry", "=", $id)->first();
-            $data->U_Name = $form['U_Name'];
-            $data->U_Desc = $form['U_Desc'];
-            $data->U_Locked = $form['U_Locked'];
-            $data->save();
+            $data = [
+                'name' => $form['name'],
+                'description' => $form['description'],
+            ];
 
-            return response()->json([
-                "errors" => false,
-                "message" => "Data updated!"
-            ]);
+            Role::where("id", "=", $id)->update($data);
+
+            return $this->success([
+                "errors" => false
+            ], 'Data updated!');
         } catch (\Exception $exception) {
-            return response()->json([
+            return $this->error($exception->getMessage(), 422, [
                 "errors" => true,
-                "message" => $exception->getMessage(),
                 "Trace" => $exception->getTrace()
             ]);
         }
@@ -180,15 +172,16 @@ class MasterRolesController extends Controller
      */
     public function destroy($id): \Illuminate\Http\JsonResponse
     {
-        $details = Role::where("U_DocEntry", "=", $id)->first();
+        $details = Role::where("id", "=", $id)->first();
         if ($details) {
-            Role::where("U_DocEntry", "=", $id)->delete();
-            return response()->json([
-                'message' => 'Row deleted'
-            ]);
+            Role::where("id", "=", $id)->delete();
+            return $this->success([
+                "errors" => false
+            ], 'Row deleted!');
         }
-        return response()->json([
-            'message' => 'Row not found'
+
+        return $this->error('Row not found', 422, [
+            "errors" => true
         ]);
     }
 }

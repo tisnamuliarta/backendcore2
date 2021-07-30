@@ -31,69 +31,35 @@ class MasterUserController extends Controller
      */
     public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $schema = env("DB_SCHEMA");
-
         $options = json_decode($request->options);
         $year_local = date('Y');
         $pages = isset($options->page) ? (int)$options->page : 1;
         $filter = isset($request->filter) ? (string)$request->filter : $year_local;
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 20;
-        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "U_UserCode";
+        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "name";
         $order = isset($options->sortDesc[0]) ? "DESC" : "ASC";
         $search = isset($request->search) ? (string)$request->search : "";
-        $select_data = isset($request->searchItem) ? (string)$request->searchItem : "U_Name";
+        $select_data = isset($request->searchItem) ? (string)$request->searchItem : "name";
 
         $offset = ($pages - 1) * $row_data;
-        $username = $request->user()->U_UserCode;
 
         $result = array();
-        $query = User::select(
-            "OUSR_H.*",
-            DB::raw('(SELECT X."U_UserName" FROM ' . $schema . '.OUSR_H AS X
-                WHERE X."user_id" = ' . $schema . '.OUSR_H."U_SubId" ) AS "SubName" '),
-            DB::raw('ROW_NUMBER() OVER (ORDER BY ' . $schema . '.OUSR_H."user_id" ASC) AS row_num'),
-            DB::raw('
-                    CASE
-                        WHEN ' . $schema . '.OUSR_H."U_IsActive" = \'N\' THEN \'red\'
-                        ELSE \'white\'
-                    END AS "Color"
-                '),
-            "U_OUPT.U_Name"
-        )
-            ->leftJoin("U_OUPT", "U_OUPT.U_DocEntry", "OUSR_H.U_Role")
-            //->orderBy(DB::raw('ROW_NUMBER() OVER (ORDER BY ' . $schema . '.OUSR_H."user_id" ASC)'), $order)
+        $query = User::select('*', 'id AS Action')
             ->orderBy($sorts, $order);
 
         $result["total"] = $query->count();
         $all_data = $query->offset($offset)
-            ->with([
-                'department' => function ($query) {
-                    $query->select("U_Name", "U_DocEntry");
-                },
-                'division' => function ($query) {
-                    $query->select("U_Name", "U_DocEntry");
-                },
-                'role' => function ($query) {
-                    $query->select("U_Name", "U_DocEntry");
-                },
-            ])
             ->when($select_data, function ($query) use ($select_data, $search) {
                 $data_query = $query;
                 switch ($select_data) {
-                    case 'User Code':
-                        $data_query->whereRaw('contains("OUSR_H"."U_UserCode",  \'%' . $search . '%\', FUZZY(0.7)) ');
+                    case 'Username':
+                        $data_query->where('username', 'LIKE', '%' . $search . '%');
                         break;
-                    case 'User Name':
-                        $data_query->whereRaw('contains("OUSR_H"."U_UserName",  \'%' . $search . '%\', FUZZY(0.7)) ');
-                        break;
-                    case 'NIK':
-                        $data_query->whereRaw('contains("OUSR_H"."U_NIK",  \'%' . $search . '%\', FUZZY(0.7)) ');
+                    case 'Name':
+                        $data_query->where('name', 'LIKE', '%' . $search . '%');
                         break;
                     case 'Department':
-                        $data_query->whereRaw('contains("OUSR_H"."U_Department",  \'%' . $search . '%\', FUZZY(0.7)) ');
-                        break;
-                    case 'Division':
-                        $data_query->whereRaw('contains("OUSR_H"."U_Division",  \'%' . $search . '%\', FUZZY(0.7)) ');
+                        $data_query->where('department', 'LIKE', '%' . $search . '%');
                         break;
                 }
                 return $data_query;
@@ -103,7 +69,7 @@ class MasterUserController extends Controller
 
         $result = array_merge($result, [
             "rows" => $all_data,
-            "filter" => ['User Code', 'User Name', 'NIK', 'Department', 'Division'],
+            "filter" => ['Username', 'Name', 'Department'],
         ]);
         return response()->json($result);
     }

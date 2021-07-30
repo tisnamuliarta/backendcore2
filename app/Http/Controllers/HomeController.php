@@ -80,7 +80,7 @@ class HomeController extends Controller
                         'icon' => $child->icon,
                         'route_name' => $child->route_name,
                     ];
-                    
+
                     $prev_name = $child->menu_name;
                 }
             }
