@@ -30,9 +30,9 @@ class CreatePermissionTables extends Migration
             $table->unsignedBigInteger('parent_id')->nullable();
             $table->string('icon', 50)->nullable();
             $table->string('route_name')->nullable();
-            $table->char('has_child')->default('N');
-            $table->char('has_route')->default('N');
-            $table->char('is_crud')->default('N');
+            $table->string('has_child', 10)->default('N');
+            $table->string('has_route', 10)->default('N');
+            $table->string('is_crud', 10)->default('N');
             $table->string('order_line', 10)->nullable();
             $table->string('guard_name'); // For MySQL 8.0 use string('guard_name', 125);
             $table->timestamps();

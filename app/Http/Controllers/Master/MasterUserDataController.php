@@ -3,17 +3,21 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Models\UserCompany;
 use App\Models\UserItmGrp;
-use App\Models\UserMenu;
 use App\Models\UserWhs;
 use App\Models\ViewEmployee;
+use App\Traits\RolePermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Permission;
 
 class MasterUserDataController extends Controller
 {
+    use RolePermission;
+
     /**
      * @param Request $request
      *
@@ -353,44 +357,6 @@ class MasterUserDataController extends Controller
         }
     }
 
-    /**
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function userMenu(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $user = json_decode($request->user);
-        $year_local = date('Y');
-        $result = [];
-        $parents = DB::table("U_MENU_OUSR")
-            ->leftJoin("U_MENU", "U_MENU.U_DocEntry", "U_MENU_OUSR.MenuId")
-            ->where("U_MENU.ParentId", "=", "0")
-            ->where("U_MENU_OUSR.UserId", "=", $user->user_id)
-            ->select("U_MENU.*", "U_MENU_OUSR.U_DocEntry AS MenuEntry")
-            ->orderBy("U_MENU.Position", "ASC")
-            ->get();
-        $menu_arr = [];
-        foreach ($parents as $parent) {
-            $children = $this->getChildMenu($parent['U_DocEntry'], $user);
-            $menu_arr[] = [
-                'icon' => $parent['Icon'],
-                'id' => $parent['U_DocEntry'],
-                'icon-alt' => $parent['IconAlt'],
-                'text' => $parent['Title'],
-                'name' => $parent['Title'],
-                'docEntry' => $parent['MenuEntry'],
-                'model' => false,
-                'children' => $children
-            ];
-        }
-
-        $result = array_merge($result, [
-            "rows" => $menu_arr,
-            "filter" => ['All'],
-        ]);
-        return response()->json($result);
-    }
-
 
     // Menu
 
@@ -423,129 +389,6 @@ class MasterUserDataController extends Controller
             ];
         }
         return $menu_arr;
-    }
-
-    /**
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function addMenu(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $form = $request->form;
-        $user = $request->user;
-//        $parent_id = [];
-//        foreach ($form as $item) {
-//            $parent_id[] = $item['parent_id'];
-//        }
-//
-//        $item_parent = array_values(array_unique($parent_id));
-//        $parents = Menu::whereIn("U_DocEntry", $item_parent)->get();
-//        foreach ($parents as $parent) {
-//            $data = new UserMenu();
-//            $data->UserId = $user['user_id'];
-//            $data->MenuId = $form['id'];
-//            $data->CreatedBy = Auth::user()->user_id;
-//            $data->save();
-//        }
-
-        foreach ($form as $item) {
-            $find_menu = UserMenu::where("UserId", "=", $user['user_id'])
-                ->where("MenuId", "=", $item['id'])
-                ->count();
-            if ($find_menu == 0) {
-                $add_company = $this->postAddMenu($user, $item);
-                if ($add_company['error']) {
-                    return response()->json([
-                        "error" => true,
-                        "message" => $add_company['message'],
-                        "trace" => $add_company['trace'],
-                    ]);
-                }
-            }
-        }
-
-        return response()->json([
-            "error" => false,
-            "message" => "Company saved!",
-        ]);
-    }
-
-    /**
-     * @param $user
-     * @param $form
-     * @return false[]
-     */
-    protected function postAddMenu($user, $form): array
-    {
-        try {
-            $data = new UserMenu();
-            $data->UserId = $user['user_id'];
-            $data->MenuId = $form['id'];
-            $data->CreatedBy = Auth::user()->user_id;
-            $data->save();
-
-            return [
-                'error' => false,
-                'message' => 'Data saved!'
-            ];
-        } catch (\Exception $exception) {
-            return [
-                'error' => true,
-                'message' => $exception->getMessage(),
-                'trace' => $exception->getTrace()
-            ];
-        }
-    }
-
-    /**
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function removeMenu(Request $request): \Illuminate\Http\JsonResponse
-    {
-        $form = $request->form;
-        foreach ($form as $item) {
-            $remove_company = $this->postRemoveMenu($item);
-
-            if ($remove_company['error']) {
-                return response()->json([
-                    "error" => true,
-                    "message" => $remove_company['message'],
-                ]);
-            }
-        }
-        return response()->json([
-            "error" => true,
-            "message" => "Company removed!",
-        ]);
-    }
-
-    /**
-     * @param $form
-     * @return array
-     */
-    protected function postRemoveMenu($form): array
-    {
-        try {
-            $data = UserMenu::where("U_DocEntry", "=", $form['docEntry'])->first();
-            if ($data) {
-                UserMenu::where("U_DocEntry", "=", $form['docEntry'])->delete();
-                return [
-                    "error" => false,
-                    "message" => "Company removed!",
-                ];
-            }
-            return [
-                "error" => true,
-                "message" => "Cannot find company!",
-            ];
-        } catch (\Exception $exception) {
-            return [
-                "error" => true,
-                "message" => $exception->getMessage(),
-                "trace" => $exception->getTrace(),
-            ];
-        }
     }
 
     /**
@@ -987,5 +830,68 @@ class MasterUserDataController extends Controller
                 "trace" => $exception->getTrace(),
             ];
         }
+    }
+
+    /**
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function userPermission(Request $request)
+    {
+        $form = json_decode($request->form);
+        $user = User::find($form->id);
+        $permissions = DB::select('EXEC sp_user_permissions ' . $user->id);
+        return $this->success([
+            'rows' => $permissions
+        ]);
+    }
+
+    /**
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeUserPermission(Request $request)
+    {
+        $details = collect($request->details);
+        $form = $request->form;
+
+        DB::beginTransaction();
+        try {
+            $user = User::find($form['id']);
+
+            foreach ($details as $detail) {
+                $this->actionStoreRolePermission($user, $detail, 'index');
+                $this->actionStoreRolePermission($user, $detail, 'store');
+                $this->actionStoreRolePermission($user, $detail, 'edits');
+                $this->actionStoreRolePermission($user, $detail, 'erase');
+            }
+
+            DB::commit();
+
+            return $this->success([], 'Data Updated');
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            return $this->error($exception->getMessage(), 422, [
+                "errors" => true,
+                "Trace" => $exception->getTrace()
+            ]);
+        }
+    }
+
+
+    /**
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function userRoles(Request $request)
+    {
+        $form = json_decode($request->form);
+        $user = User::find($form->id);
+        return $this->success([
+            'rows' => $user->roles
+        ]);
     }
 }

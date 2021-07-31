@@ -46,11 +46,9 @@ class AppController extends Controller
 
         $all_rows = Application::all();
         $arr_rows = [];
+        $arr_rows[] = 'All';
         foreach ($all_rows as $item) {
-            $arr_rows[] = [
-                "name" => $item->app_name,
-                "id" => $item->id,
-            ];
+            $arr_rows[] = $item->app_name;
         }
 
         $result = array_merge($result, [

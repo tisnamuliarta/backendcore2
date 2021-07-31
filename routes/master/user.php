@@ -16,11 +16,13 @@ Route::get("user-stages", [MasterUserDataController::class, 'userStages']);
 Route::get("whs", [MasterUserDataController::class, 'getWhs']);
 Route::get("user-whs", [MasterUserDataController::class, 'userWhs']);
 Route::get("users-company", [MasterUserDataController::class, 'userCompany']);
-Route::get("users-menu", [MasterUserDataController::class, 'userMenu']);
+Route::get('permission', [MasterUserDataController::class, 'userPermission']);
+Route::get('roles', [MasterUserDataController::class, 'userRoles']);
 
 Route::post("add-item-groups", [MasterUserDataController::class, 'addItemGroups']);
 Route::post("add-stages", [MasterUserDataController::class, 'addStages']);
 Route::post("add-whs", [MasterUserDataController::class, 'addWhs']);
+Route::post('permission', [MasterUserDataController::class, 'storeUserPermission']);
 Route::post("users-add-company", [MasterUserDataController::class, 'addCompany']);
 Route::post("users-add-menu", [MasterUserDataController::class, 'addMenu']);
 Route::post("users-remove-company", [MasterUserDataController::class, 'removeCompany']);

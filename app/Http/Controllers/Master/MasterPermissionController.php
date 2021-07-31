@@ -3,15 +3,18 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Carbon\Carbon;
+use App\Models\ListPermission;
+use App\Models\Role;
+use App\Traits\RolePermission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Spatie\Permission\Models\Permission;
 
-class MasterRolesController extends Controller
+class MasterPermissionController extends Controller
 {
+    use RolePermission;
+
     /**
      * Display a listing of the resource.
      *
@@ -23,32 +26,40 @@ class MasterRolesController extends Controller
         $options = json_decode($request->options);
         $pages = isset($options->page) ? (int)$options->page : 1;
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 20;
-        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "name";
-        $order = isset($options->sortDesc[0]) ? (string)$options->sortDesc[0] : "desc";
+        $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "order_line";
+        $order = isset($options->sortDesc[0]) ? (string)$options->sortDesc[0] : "asc";
         $offset = ($pages - 1) * $row_data;
 
         $result = array();
-        $query = Role::selectRaw("*, 'actions' as ACTIONS");
+        $query = ListPermission::select('*');
 
         $result["total"] = $query->count();
+
+        $parents = Permission::where('has_child', 'Y')
+            //->whereIsNull('route_name')
+            ->select('id', 'menu_name')
+            ->get();
+
+        $data_parent = [];
+        foreach ($parents as $parent) {
+            $data_parent[] = $parent->menu_name;
+        }
 
         $all_data = $query->offset($offset)
             ->orderBy($sorts, $order)
             ->limit($row_data)
             ->get();
 
-        $all_rows = Role::all();
+        $all_rows = Permission::groupBy(['menu_name'])->select('menu_name')->get();
         $arr_rows = [];
         foreach ($all_rows as $item) {
-            $arr_rows[] = [
-                "name" => $item->name,
-                "id" => $item->id,
-            ];
+            $arr_rows[] = $item->menu_name;
         }
 
         $result = array_merge($result, [
-            "rows" => $all_data,
-            "simple" => $arr_rows
+            'rows' => $all_data,
+            'simple' => $arr_rows,
+            'parent' => $data_parent
         ]);
         return $this->success($result);
     }
@@ -61,24 +72,57 @@ class MasterRolesController extends Controller
      */
     public function store(Request $request): \Illuminate\Http\JsonResponse
     {
-        if ($this->validation($request)) {
-            return $this->error($this->validation($request), 422, [
-                "errors" => true
-            ]);
-        }
+//        if ($this->validation($request)) {
+//            return $this->error($this->validation($request), 422, [
+//                "errors" => true
+//            ]);
+//        }
 
         $form = $request->form;
+        DB::beginTransaction();
         try {
+            $parent = Permission::where('menu_name', $form['parent_name'])->first();
             $data = [
-                'name' => $form['name'],
-                'description' => $form['description'],
+                'name' => $form['menu_name'],
+                'app_name' => $form['app_name'],
+                'menu_name' => $form['menu_name'],
+                'parent_id' => $parent->id,
+                'icon' => $form['icon'],
+                'route_name' => $form['route_name'],
+                'has_child' => $form['has_child'],
+                'has_route' => $form['has_route'],
+                'order_line' => $form['order_line'],
+                'is_crud' => $form['is_crud']
             ];
-            Role::create($data);
+
+            if ($form['is_crud'] == 'Y') {
+                $this->generatePermission((object)$data);
+            } else {
+                if (isset($form['index'])) {
+                    $this->generatePermission((object)$data);
+                }
+
+                if (isset($form['store'])) {
+                    $this->generatePermission((object)$data, '-store');
+                }
+
+                if (isset($form['edits'])) {
+                    $this->generatePermission((object)$data, '-edits');
+                }
+
+                if (isset($form['edits'])) {
+                    $this->generatePermission((object)$data, '-erase');
+                }
+            }
+
+            DB::commit();
 
             return $this->success([
                 "errors" => false
             ], 'Data inserted!');
         } catch (\Exception $exception) {
+            DB::rollBack();
+
             return $this->error($exception->getMessage(), 422, [
                 "errors" => true,
                 "Trace" => $exception->getTrace()
@@ -98,6 +142,12 @@ class MasterRolesController extends Controller
 
         $validator = Validator::make($request->all(), [
             'form.name' => 'required',
+            'form.app_name' => 'required',
+            'form.menu_name' => 'required',
+            'form.has_child' => 'required',
+            'form.has_route' => 'required',
+            'form.order_line' => 'required',
+            'form.is_crud' => 'required',
         ], $messages);
 
         $string_data = "";
@@ -116,15 +166,18 @@ class MasterRolesController extends Controller
     /**
      * Display the specified resource.
      *
+     * @param Request $request
      * @param int $id
+     *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function show($id): \Illuminate\Http\JsonResponse
+    public function show(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
-        $data = Role::where("id", "=", $id)->get();
+        $menu_name = $request->menu_name;
+        $data = DB::select("EXEC sp_single_permission '$menu_name' ");
 
         return $this->success([
-            'rows' => $data
+            'rows' => $data[0]
         ]);
     }
 
@@ -145,12 +198,9 @@ class MasterRolesController extends Controller
 
         $form = $request->form;
         try {
-            $data = [
-                'name' => $form['name'],
-                'description' => $form['description'],
-            ];
+            $data = $this->data($form);
 
-            Role::where("id", "=", $id)->update($data);
+            Permission::where("id", "=", $id)->update($data);
 
             return $this->success([
                 "errors" => false
@@ -171,9 +221,9 @@ class MasterRolesController extends Controller
      */
     public function destroy($id): \Illuminate\Http\JsonResponse
     {
-        $details = Role::where("id", "=", $id)->first();
+        $details = Permission::where("id", "=", $id)->first();
         if ($details) {
-            Role::where("id", "=", $id)->delete();
+            Permission::where("id", "=", $id)->delete();
             return $this->success([
                 "errors" => false
             ], 'Row deleted!');
@@ -224,24 +274,6 @@ class MasterRolesController extends Controller
                 "errors" => true,
                 "Trace" => $exception->getTrace()
             ]);
-        }
-    }
-
-    /**
-     * @param $role
-     * @param $detail
-     * @param $key
-     */
-    protected function actionStoreRolePermission($role, $detail, $key)
-    {
-        $permission = Permission::where('name', $detail['permission'] . '-' . $key)
-            ->first();
-        if ($permission) {
-            if ($detail[$key] == 'Y') {
-                $role->givePermissionTo($detail['permission'] . '-' . $key);
-            } else {
-                $role->revokePermissionTo($detail['permission'] . '-' . $key);
-            }
         }
     }
 }

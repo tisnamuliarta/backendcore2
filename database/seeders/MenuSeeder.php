@@ -210,6 +210,13 @@ class MenuSeeder extends Seeder
             Application::create($list_app);
         }
 
+        Role::create([
+            'name' => 'Superuser'
+        ]);
+
+        Role::create([
+            'name' => 'Admin E-RESERVATION'
+        ]);
 
         Company::create([
             'db_code' => 'IMIP_TEST_1217',
@@ -227,5 +234,13 @@ class MenuSeeder extends Seeder
 
         $superuser = Role::where('name', '=', 'Superuser')->first();
         $superuser->syncPermissions($permissions);
+
+
+        $permission_resv = Permission::where('app_name', '=', 'E-RESERVATION')
+            ->pluck('id', 'id')
+            ->all();
+
+        $admin_rsv = Role::where('name', '=', 'Admin E-RESERVATION')->first();
+        $admin_rsv->syncPermissions($permission_resv);
     }
 }

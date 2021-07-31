@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Application;
 use App\Models\Company;
 use App\Models\User;
+use App\Models\UserApp;
 use App\Models\UserCompany;
 use App\Models\UserItmGrp;
 use App\Models\UserWhs;
@@ -63,6 +65,18 @@ class AuthController extends Controller
             $password = $request->password;
             $app_name = (isset($request->app_name)) ? $request->app_name : 'E-RESERVATION';
 
+            $user = User::where('username', $username)->first();
+            if (!$user) {
+                return $this->error('Username not registered in this Application!', 401);
+            }
+
+            $apps = Application::where('app_name', $app_name)->first();
+            if (UserApp::where('user_id', $user->id)
+                    ->where('app_id', $apps->id)
+                    ->count() < 1) {
+                return $this->error('Unauthorized to access this Application!', 401);
+            }
+
             if ($username != 'manager') {
                 $response = Http::post(env('CHERRY_TOKEN'), [
                     'CommandName' => 'RequestToken',
@@ -87,14 +101,16 @@ class AuthController extends Controller
                 return $this->error('Credentials not match', 401);
             }
 
-            $company = $this->assignUserCompany($username);
+            if ($request->username == 'manager') {
+                $company = $this->assignUserCompany($username);
 
-            $this->assignRolePermissionToUser($username);
+                $this->assignRolePermissionToUser($username);
 
-            if ($app_name == 'E-RESERVATION') {
-                $this->assignUserWareHouse($username, $company);
+                if ($app_name == 'E-RESERVATION') {
+                    $this->assignUserWareHouse($username, $company);
 
-                $this->assignUserItemGroups($username, $company);
+                    $this->assignUserItemGroups($username, $company);
+                }
             }
 
             return $this->success([
@@ -158,6 +174,7 @@ class AuthController extends Controller
                 'company_id' => $company->id
             ]);
         }
+
         return $company->db_code;
     }
 
@@ -280,10 +297,10 @@ class AuthController extends Controller
      */
     protected function assignRolePermissionToUser($username)
     {
-        if ($username == '88101989') {
+        if ($username == '1') {
             $role = Role::findByName('Superuser');
             $permissions = Permission::all();
-            $user = User::where('username', $username)->first();
+            $user = User::where('id', $username)->first();
             $user->assignRole($role);
             foreach ($permissions as $permission) {
                 $user->givePermissionTo($permission->name);
