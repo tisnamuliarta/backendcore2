@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reservation;
 
 use App\Http\Controllers\Controller;
+use App\Models\Resv\ReservationHeader;
 use App\Traits\Approval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -18,8 +19,9 @@ class TransactionApprovalController extends Controller
      */
     public function index(Request $request): \Illuminate\Http\JsonResponse
     {
-        $cherry_token = $request->cherry_token;
-        $employee_code = $request->user()->user_code;
+        $cherry_token = $request->user()->cherry_token;
+        $employee_code = $request->user()->employee_code;
+        $status_approval = $request->status_approval;
 
         $headers = [
             'Content-Type' => 'application/json',
@@ -37,12 +39,19 @@ class TransactionApprovalController extends Controller
                         'ParamKey' => 'ApproverCode',
                         'ParamValue' => $employee_code,
                         'Operator' => 'eq'
+                    ],
+                    [
+                        'ParamKey' => 'StatusId',
+                        'ParamValue' => $status_approval,
+                        'Operator' => 'eq'
                     ]
                 ]
             ]);
 
         $collect = $documents->collect();
         $array_result = [];
+
+        //return response()->json($collect);
 
         foreach ($collect['Data'] as $datum) {
             $documents = Http::withHeaders($headers)
@@ -56,24 +65,43 @@ class TransactionApprovalController extends Controller
                             'ParamKey' => 'Code',
                             'ParamValue' => $datum['ModelEntityCode'],
                             'Operator' => 'eq'
-                        ]
+                        ],
                     ]
                 ]);
 
-            $array_result[] = [
-                'Keys' => Str::random(10),
-                'TypeName' => $datum['TypeName'],
-                'Details' => $documents->collect()['Data'][0]['DocumentContent'],
-                'RequesterName' => $datum['RequesterName'],
-                'StatusId' => $datum['StatusId'],
-                'Date' => ($datum['Date']) ?
-                    date('Y-m-d H:i:s', (int)substr($datum['Date'], 6, 10)) : '',
-            ];
+            //return response()->json($documents->collect()['Data']);
+            if ($documents->collect()['Data']) {
+                $doc_entry = ReservationHeader::where(
+                    'DocNum',
+                    '=',
+                    $documents->collect()['Data'][0]['DocumentReferenceID']
+                )
+                    ->first();
+
+                $array_result[] = [
+                    'Keys' => Str::random(10),
+                    'TypeName' => $datum['TypeName'],
+                    'ApproveUrl' => $datum['ApproveUrl'],
+                    'ApproveToken' => $datum['ApproveToken'],
+                    'RejectUrl' => $datum['RejectUrl'],
+                    'RejectToken' => $datum['RejectToken'],
+                    'Code' => $datum['Code'],
+                    'DocDate' => $datum['Date'],
+                    'Details' => $documents->collect()['Data'][0]['DocumentContent'],
+                    'DocumentReferenceID' => $documents->collect()['Data'][0]['DocumentReferenceID'],
+                    'RequesterName' => $datum['RequesterName'],
+                    'StatusId' => $datum['StatusId'],
+                    'U_DocEntry' => $doc_entry->U_DocEntry,
+                    'Date' => ($datum['Date']) ?
+                        date('Y-m-d H:i:s', (int)substr($datum['Date'], 6, 10)) : '',
+                ];
+            }
         }
 
-        return response()->json([
+        return $this->success([
             'rows' => $array_result,
-            'total' => count($collect['Data'])
+            'total' => count($collect['Data']),
+            'ApprovalStatus' => ['Pending', 'Approved', 'Rejected'],
         ]);
     }
 
@@ -83,11 +111,27 @@ class TransactionApprovalController extends Controller
      */
     public function action(Request $request): \Illuminate\Http\JsonResponse
     {
-        $form = $request->form;
-        $action_text = $request->actionText;
-        $action = $request->titleAction;
-        // App/Http/Traits/Approval
-        return $this->actionApproval($request, $form, $action_text, $action);
+        $code = [];
+        $selected = collect($request->selected);
+        foreach ($selected as $item) {
+            $code[] = $item['Code'];
+        }
+
+        $action = $request->action;
+        $documents = Http::post(env('CHERRY_REQ'), [
+            'CommandName' => 'GetList',
+            'ModelCode' => 'ApprovalRequests',
+            'UserName' => $request->user()->username,
+            'Token' => $request->user()->cherry_token,
+            'ParameterData' => [
+                [
+                    'ParamKey' => 'Code',
+                    'ParamValue' => implode(',', $code),
+                    'Operator' => 'in'
+                ]
+            ]
+        ]);
+        return response()->json($documents->collect());
     }
 
     /**

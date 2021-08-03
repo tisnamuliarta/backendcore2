@@ -97,24 +97,22 @@ class AuthController extends Controller
                 $username = $user->id;
             }
 
-            if (!Auth::attempt($attr)) {
+            if (! $token = auth()->attempt($attr)) {
                 return $this->error('Credentials not match', 401);
             }
 
-            if ($request->username == 'manager') {
-                $company = $this->assignUserCompany($username);
+            $company = $this->assignUserCompany($username);
 
-                $this->assignRolePermissionToUser($username);
+            $this->assignRolePermissionToUser($username);
 
-                if ($app_name == 'E-RESERVATION') {
-                    $this->assignUserWareHouse($username, $company);
+            if ($app_name == 'E-RESERVATION') {
+                $this->assignUserWareHouse($username, $company);
 
-                    $this->assignUserItemGroups($username, $company);
-                }
+                $this->assignUserItemGroups($username, $company);
             }
 
-            return $this->success([
-                'token' => auth()->user()->createToken('API Token')->plainTextToken,
+            return response()->json([
+                'token' => $token,
                 'user' => auth()->user()
             ]);
         } catch (\Exception $exception) {
@@ -273,10 +271,34 @@ class AuthController extends Controller
      */
     public function logout()
     {
-        auth()->user()->tokens()->delete();
+        auth()->logout();
 
         return $this->success([
             'message' => 'Tokens Revoked'
+        ]);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function refresh()
+    {
+        return $this->respondWithToken(auth()->refresh());
+    }
+
+    /**
+     * Get the token array structure.
+     *
+     * @param  string $token
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function respondWithToken($token)
+    {
+        return response()->json([
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => auth()->factory()->getTTL() * 60
         ]);
     }
 
@@ -298,7 +320,7 @@ class AuthController extends Controller
     protected function assignRolePermissionToUser($username)
     {
         if ($username == '1') {
-            $role = Role::findByName('Superuser');
+            $role = Role::where('name', 'Superuser')->first();
             $permissions = Permission::all();
             $user = User::where('id', $username)->first();
             $user->assignRole($role);

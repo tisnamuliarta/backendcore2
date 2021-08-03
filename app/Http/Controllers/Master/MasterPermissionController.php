@@ -16,6 +16,17 @@ class MasterPermissionController extends Controller
     use RolePermission;
 
     /**
+     * MasterUserController constructor.
+     */
+    public function __construct()
+    {
+        $this->middleware(['permission:Permission-index'])->only(['index', 'show']);
+        $this->middleware(['permission:Permission-store'])->only('store');
+        $this->middleware(['permission:Permission-edits'])->only('update');
+        $this->middleware(['permission:Permission-erase'])->only('destroy');
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @param Request $request
@@ -72,11 +83,11 @@ class MasterPermissionController extends Controller
      */
     public function store(Request $request): \Illuminate\Http\JsonResponse
     {
-//        if ($this->validation($request)) {
-//            return $this->error($this->validation($request), 422, [
-//                "errors" => true
-//            ]);
-//        }
+        if ($this->validation($request)) {
+            return $this->error($this->validation($request), 422, [
+                "errors" => true
+            ]);
+        }
 
         $form = $request->form;
         DB::beginTransaction();
@@ -86,32 +97,33 @@ class MasterPermissionController extends Controller
                 'name' => $form['menu_name'],
                 'app_name' => $form['app_name'],
                 'menu_name' => $form['menu_name'],
-                'parent_id' => $parent->id,
+                'parent_id' => ($parent) ? $parent->id : 0,
                 'icon' => $form['icon'],
                 'route_name' => $form['route_name'],
                 'has_child' => $form['has_child'],
                 'has_route' => $form['has_route'],
                 'order_line' => $form['order_line'],
-                'is_crud' => $form['is_crud']
+                'is_crud' => $form['is_crud'],
+                'role' => $form['role'],
             ];
 
             if ($form['is_crud'] == 'Y') {
-                $this->generatePermission((object)$data);
+                $this->generatePermission((object)$data, '-index', 'Y');
             } else {
                 if (isset($form['index'])) {
-                    $this->generatePermission((object)$data);
+                    $this->generatePermission((object)$data, '-index', 'Y');
                 }
 
                 if (isset($form['store'])) {
-                    $this->generatePermission((object)$data, '-store');
+                    $this->generatePermission((object)$data, '-store', 'Y');
                 }
 
                 if (isset($form['edits'])) {
-                    $this->generatePermission((object)$data, '-edits');
+                    $this->generatePermission((object)$data, '-edits', 'Y');
                 }
 
                 if (isset($form['edits'])) {
-                    $this->generatePermission((object)$data, '-erase');
+                    $this->generatePermission((object)$data, '-erase', 'Y');
                 }
             }
 
@@ -132,22 +144,23 @@ class MasterPermissionController extends Controller
 
     /**
      * @param $request
+     *
      * @return false|string
      */
     protected function validation($request)
     {
         $messages = [
-            'form.name' => 'Name is required!',
+            'form.app_name' => 'Application Name is required!',
+            'form.menu_name' => 'Menu Name is required!',
+            'form.order_line' => 'Order line field is required!',
+            'form.role' => 'Role field is required!',
         ];
 
         $validator = Validator::make($request->all(), [
-            'form.name' => 'required',
             'form.app_name' => 'required',
             'form.menu_name' => 'required',
-            'form.has_child' => 'required',
-            'form.has_route' => 'required',
             'form.order_line' => 'required',
-            'form.is_crud' => 'required',
+            'form.role' => 'required',
         ], $messages);
 
         $string_data = "";
@@ -232,48 +245,5 @@ class MasterPermissionController extends Controller
         return $this->error('Row not found', 422, [
             "errors" => true
         ]);
-    }
-
-    /**
-     * @param Request $request
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function permissionRole(Request $request)
-    {
-        $role = Role::where('name', $request->role)->first();
-        $permissions = DB::select('EXEC sp_role_permissions ' . $role->id);
-        return $this->success([
-            'rows' => $permissions
-        ]);
-    }
-
-    /**
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function storePermissionRole(Request $request)
-    {
-        $details = collect($request->details);
-        DB::beginTransaction();
-        try {
-            $role = Role::where('name', $request->role)->first();
-            foreach ($details as $detail) {
-                $this->actionStoreRolePermission($role, $detail, 'index');
-                $this->actionStoreRolePermission($role, $detail, 'store');
-                $this->actionStoreRolePermission($role, $detail, 'edits');
-                $this->actionStoreRolePermission($role, $detail, 'erase');
-            }
-
-            DB::commit();
-
-            return $this->success([], 'Data Updated');
-        } catch (\Exception $exception) {
-            DB::rollBack();
-            return $this->error($exception->getMessage(), 422, [
-                "errors" => true,
-                "Trace" => $exception->getTrace()
-            ]);
-        }
     }
 }

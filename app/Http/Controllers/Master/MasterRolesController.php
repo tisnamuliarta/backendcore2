@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Traits\RolePermission;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -12,6 +14,18 @@ use Illuminate\Support\Facades\Validator;
 
 class MasterRolesController extends Controller
 {
+    use RolePermission;
+    /**
+     * MasterUserController constructor.
+     */
+    public function __construct()
+    {
+        $this->middleware(['permission:Roles-index'])->only(['index', 'show', 'permissionRole']);
+        $this->middleware(['permission:Roles-store'])->only(['store', 'storePermissionRole']);
+        $this->middleware(['permission:Roles-edits'])->only('update');
+        $this->middleware(['permission:Roles-erase'])->only('destroy');
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -71,6 +85,7 @@ class MasterRolesController extends Controller
         try {
             $data = [
                 'name' => $form['name'],
+                'guard_name' => 'web',
                 'description' => $form['description'],
             ];
             Role::create($data);
@@ -147,6 +162,7 @@ class MasterRolesController extends Controller
         try {
             $data = [
                 'name' => $form['name'],
+                'guard_name' => 'web',
                 'description' => $form['description'],
             ];
 
@@ -191,7 +207,8 @@ class MasterRolesController extends Controller
      */
     public function permissionRole(Request $request)
     {
-        $role = Role::where('name', $request->role)->first();
+        $form = json_decode($request->form);
+        $role = Role::where('name', $form->name)->first();
         $permissions = DB::select('EXEC sp_role_permissions ' . $role->id);
         return $this->success([
             'rows' => $permissions
@@ -207,12 +224,21 @@ class MasterRolesController extends Controller
         $details = collect($request->details);
         DB::beginTransaction();
         try {
-            $role = Role::where('name', $request->role)->first();
+            $role = Role::where('name', $request->form['name'])->first();
             foreach ($details as $detail) {
+                // return $detail['permission'] . '-index';
                 $this->actionStoreRolePermission($role, $detail, 'index');
                 $this->actionStoreRolePermission($role, $detail, 'store');
                 $this->actionStoreRolePermission($role, $detail, 'edits');
                 $this->actionStoreRolePermission($role, $detail, 'erase');
+
+                foreach ($role->users as $item) {
+                    $user = User::find($item->id);
+                    $this->actionStoreRolePermission($user, $detail, 'index');
+                    $this->actionStoreRolePermission($user, $detail, 'store');
+                    $this->actionStoreRolePermission($user, $detail, 'edits');
+                    $this->actionStoreRolePermission($user, $detail, 'erase');
+                }
             }
 
             DB::commit();
@@ -224,24 +250,6 @@ class MasterRolesController extends Controller
                 "errors" => true,
                 "Trace" => $exception->getTrace()
             ]);
-        }
-    }
-
-    /**
-     * @param $role
-     * @param $detail
-     * @param $key
-     */
-    protected function actionStoreRolePermission($role, $detail, $key)
-    {
-        $permission = Permission::where('name', $detail['permission'] . '-' . $key)
-            ->first();
-        if ($permission) {
-            if ($detail[$key] == 'Y') {
-                $role->givePermissionTo($detail['permission'] . '-' . $key);
-            } else {
-                $role->revokePermissionTo($detail['permission'] . '-' . $key);
-            }
         }
     }
 }

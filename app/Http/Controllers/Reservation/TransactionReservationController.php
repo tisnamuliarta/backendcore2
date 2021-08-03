@@ -28,6 +28,17 @@ class TransactionReservationController extends Controller
     use ConnectHana, Approval;
 
     /**
+     * TransactionReservationController constructor.
+     */
+    public function __construct()
+    {
+        $this->middleware(['permission:Reservation Request-index'])->only(['index', 'show', 'maxDocResv']);
+        $this->middleware(['permission:Reservation Request-store'])->only('store');
+        $this->middleware(['permission:Reservation Request-edits'])->only('update');
+        $this->middleware(['permission:Reservation Request-erase'])->only('destroy');
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @param Request $request
@@ -943,7 +954,7 @@ class TransactionReservationController extends Controller
     public function submitApproval(Request $request)
     {
         $form = $request->form;
-        $cherry_token = $request->cherry_token;
+        $cherry_token = $request->user()->cherry_token;
         $list_code = Http::post(env('CHERRY_REQ'), [
             'CommandName' => 'GetList',
             'ModelCode' => 'ExternalDocuments',
@@ -1019,7 +1030,7 @@ class TransactionReservationController extends Controller
         return response()->json([
             "errors" => false,
             "U_DocEntry" => $form['U_DocEntry'],
-            "message" => ($form['U_DocEntry'] != 'null') ? "Data updated!" : "Data inserted!"
+            "message" => ($form['U_DocEntry'] != 'null') ? "Data updated!" : "Data inserted!",
         ]);
 
         // App/Httt/Traits/Approval

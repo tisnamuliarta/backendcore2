@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Models\Application;
 use App\Models\Role;
 use App\Models\UserApp;
+use Illuminate\Support\Facades\DB;
 
 trait MasterData
 {
@@ -17,7 +18,15 @@ trait MasterData
         $roles = $request->form['role'];
         foreach ($roles as $role) {
             $role_id = Role::where('id', '=', $role)->first();
+            $permissions = DB::select('EXEC sp_role_permissions ' . $role_id->id);
             $user->assignRole($role_id);
+
+            foreach ($permissions as $permission) {
+                $this->actionStoreRolePermission($user, (array)$permission, 'index');
+                $this->actionStoreRolePermission($user, (array)$permission, 'store');
+                $this->actionStoreRolePermission($user, (array)$permission, 'edits');
+                $this->actionStoreRolePermission($user, (array)$permission, 'erase');
+            }
         }
     }
 

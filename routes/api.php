@@ -13,12 +13,16 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 
 Route::post('callback', [\App\Http\Controllers\CherryApprovalController::class, 'callback']);
 
-Route::group(['middleware' => ['auth:sanctum']], function () {
-    Route::get('/me', [AuthController::class, 'user']);
+Route::group(['middleware' => ['api', 'auth:api']], function () {
+    Route::group(['prefix' => 'auth'], function () {
+        Route::get('/me', [AuthController::class, 'user']);
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
+    });
+
     Route::get('/table', [HomeController::class, 'table']);
     Route::get('home-data', [HomeController::class, 'homeData']);
     Route::get('menus', [HomeController::class, 'menus']);
-    Route::post('/auth/logout', [AuthController::class, 'logout']);
 
     Route::get('item-master-data', [MasterDataController::class, 'getItemMasterData']);
     Route::get('latest-req-item', [MasterDataController::class, 'getLatestRequest']);

@@ -13,6 +13,6 @@ Route::get('approval-stages', [TransactionApprovalController::class, 'approvalSt
 Route::delete('delete-all/{id}', [TransactionReservationController::class, 'deleteAll']);
 
 Route::post('submit-approval', [TransactionReservationController::class, 'submitApproval']);
-Route::post('action', [TransactionReservationController::class, 'action']);
+Route::post('action', [TransactionApprovalController::class, 'action']);
 
 Route::apiResource('master', TransactionReservationController::class);
