@@ -31,7 +31,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'Y',
                 'has_route' => 'N',
                 'order_line' => '1',
-                'is_crud' => 'N'
+                'is_crud' => 'N',
+                'guard_name' => 'api'
             ],
             [
                 'name' => 'Reservation',
@@ -43,7 +44,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'Y',
                 'has_route' => 'N',
                 'order_line' => '2',
-                'is_crud' => 'N'
+                'is_crud' => 'N',
+                'guard_name' => 'api'
             ],
             [
                 'name' => 'Inventory',
@@ -55,7 +57,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'Y',
                 'has_route' => 'N',
                 'order_line' => '3',
-                'is_crud' => 'N'
+                'is_crud' => 'N',
+                'guard_name' => 'api'
             ],
             [
                 'name' => 'Reservation Request',
@@ -67,7 +70,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '2.1',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
             [
                 'name' => 'Reservation Approval',
@@ -79,7 +83,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '2.2',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -92,7 +97,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '2.3',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -105,7 +111,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '1.1',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -118,7 +125,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '1.2',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -131,7 +139,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '1.2',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -144,7 +153,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '3.1',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -157,7 +167,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '3.2',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -170,7 +181,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '3.3',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
 
             [
@@ -183,7 +195,8 @@ class MenuSeeder extends Seeder
                 'has_child' => 'N',
                 'has_route' => 'Y',
                 'order_line' => '3.3',
-                'is_crud' => 'Y'
+                'is_crud' => 'Y',
+                'guard_name' => 'api'
             ],
         ];
 
