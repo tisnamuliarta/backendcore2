@@ -111,27 +111,51 @@ class TransactionApprovalController extends Controller
      */
     public function action(Request $request): \Illuminate\Http\JsonResponse
     {
-        $code = [];
-        $selected = collect($request->selected);
-        foreach ($selected as $item) {
-            $code[] = $item['Code'];
-        }
+        try {
+            $code = [];
+            $selected = collect($request->selected);
+            foreach ($selected as $item) {
+                $code[] = $item['Code'];
+            }
 
-        $action = $request->action;
-        $documents = Http::post(env('CHERRY_REQ'), [
-            'CommandName' => 'GetList',
-            'ModelCode' => 'ApprovalRequests',
-            'UserName' => $request->user()->username,
-            'Token' => $request->user()->cherry_token,
-            'ParameterData' => [
-                [
-                    'ParamKey' => 'Code',
-                    'ParamValue' => implode(',', $code),
-                    'Operator' => 'in'
+            $action = $request->action;
+            $documents = Http::post(env('CHERRY_REQ'), [
+                'CommandName' => 'GetList',
+                'ModelCode' => 'ApprovalRequests',
+                'UserName' => $request->user()->username,
+                'Token' => $request->user()->cherry_token,
+                'ParameterData' => [
+                    [
+                        'ParamKey' => 'Code',
+                        'ParamValue' => implode(',', $code),
+                        'Operator' => 'in'
+                    ]
                 ]
-            ]
-        ]);
-        return response()->json($documents->collect());
+            ]);
+
+            $concat_array = [];
+            foreach ($documents->collect()['Data'] as $index => $item) {
+                $item = (object)$item;
+                $item->StatusId = $action;
+                $concat_array[] = $item;
+            }
+
+            //return response()->json($concat_array);
+
+            $approval = Http::post(env('CHERRY_REQ'), [
+                'CommandName' => 'SubmitList',
+                'ModelCode' => 'ApprovalRequests',
+                'UserName' => $request->user()->username,
+                'Token' => $request->user()->cherry_token,
+                'ModelData' => json_encode($concat_array),
+                'ParameterData' => []
+            ]);
+            return $this->success($approval->collect(), $approval->collect()['Message']);
+        } catch (\Exception $exception) {
+            return $this->error($exception->getMessage(), '422', [
+                'trace' => $exception->getTrace()
+            ]);
+        }
     }
 
     /**
