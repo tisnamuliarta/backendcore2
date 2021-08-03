@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Models\Permission;
+use App\Models\Role;
 
 trait RolePermission
 {
@@ -10,7 +11,7 @@ trait RolePermission
      * @param $request
      * @param string $suffix
      */
-    protected function generatePermission($request, string $suffix = '-index')
+    protected function generatePermission($request, string $suffix = '-index', $insert_role = 'N')
     {
         $data = [
             'name' => $request->name,
@@ -23,6 +24,7 @@ trait RolePermission
             'has_route' => $request->has_route,
             'order_line' => $request->order_line,
             'is_crud' => $request->is_crud,
+            'guard_name' => 'web'
         ];
 
         if ($request->is_crud == 'Y') {
@@ -31,11 +33,31 @@ trait RolePermission
             foreach ($suffix as $value) {
                 $data['name'] = $request->name . '-' . $value;
 
-                Permission::create($data);
+                $permission = Permission::create($data);
+
+                $this->assignPermissionToRole($permission, $insert_role, $request);
             }
         } else {
             $data['name'] = $request->name . $suffix;
-            Permission::create($data);
+            $permission = Permission::create($data);
+
+            $this->assignPermissionToRole($permission, $insert_role, $request);
+        }
+    }
+
+    /**
+     * @param $permission
+     * @param $insert_role
+     * @param $request
+     */
+    protected function assignPermissionToRole($permission, $insert_role, $request)
+    {
+        if ($insert_role == 'Y') {
+            foreach ($request->role as $item) {
+                $role = Role::where('id', '=', $item)->first();
+                $permissions = Permission::where('id', '=', $permission->id)->first();
+                $permissions->assignRole($role->name);
+            }
         }
     }
 

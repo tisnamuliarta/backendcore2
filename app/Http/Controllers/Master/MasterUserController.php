@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Traits\ConnectHana;
 use App\Models\User;
 use App\Traits\MasterData;
+use App\Traits\RolePermission;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,15 +15,17 @@ use Illuminate\Support\Facades\Validator;
 class MasterUserController extends Controller
 {
     use ConnectHana;
-    use MasterData;
+    use MasterData, RolePermission;
 
     /**
-     * @param Request $request
-     * @return mixed
+     * MasterUserController constructor.
      */
-    public function authUser(Request $request)
+    public function __construct()
     {
-        return $request->user();
+        $this->middleware(['permission:Users-index'])->only(['index', 'show']);
+        $this->middleware(['permission:Users-store'])->only('store');
+        $this->middleware(['permission:Users-edits'])->only('update');
+        $this->middleware(['permission:Users-erase'])->only('destroy');
     }
 
     /**

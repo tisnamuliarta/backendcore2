@@ -28,6 +28,17 @@ class TransactionReservationController extends Controller
     use ConnectHana, Approval;
 
     /**
+     * TransactionReservationController constructor.
+     */
+    public function __construct()
+    {
+        $this->middleware(['permission:Reservation Request-index'])->only(['index', 'show', 'maxDocResv']);
+        $this->middleware(['permission:Reservation Request-store'])->only('store');
+        $this->middleware(['permission:Reservation Request-edits'])->only('update');
+        $this->middleware(['permission:Reservation Request-erase'])->only('destroy');
+    }
+
+    /**
      * Display a listing of the resource.
      *
      * @param Request $request
