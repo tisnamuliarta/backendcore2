@@ -24,7 +24,7 @@ trait RolePermission
             'has_route' => $request->has_route,
             'order_line' => $request->order_line,
             'is_crud' => $request->is_crud,
-            'guard_name' => 'web'
+            'guard_name' => $request->guard_name
         ];
 
         if ($request->is_crud == 'Y') {
