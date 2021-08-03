@@ -28,6 +28,8 @@ Route::group(['middleware' => ['api', 'auth:api']], function () {
     Route::get('latest-req-item', [MasterDataController::class, 'getLatestRequest']);
     Route::get('list-latest-req', [MasterDataController::class, 'getListRequest']);
 
+    Route::apiResource("req-item", 'Reservation\ReqItemController');
+
     Route::prefix('reservation')
         ->group(__DIR__ . '/transaction/reservation.php');
 
