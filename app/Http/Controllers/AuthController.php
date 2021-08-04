@@ -97,7 +97,7 @@ class AuthController extends Controller
                 $username = $user->id;
             }
 
-            if (! $token = auth()->attempt($attr)) {
+            if (!$token = auth()->attempt($attr)) {
                 return $this->error('Credentials not match', 401);
             }
 
@@ -289,14 +289,15 @@ class AuthController extends Controller
     /**
      * Get the token array structure.
      *
-     * @param  string $token
+     * @param string $token
      *
      * @return \Illuminate\Http\JsonResponse
      */
     protected function respondWithToken($token)
     {
         return response()->json([
-            'access_token' => $token,
+            'token' => $token,
+            'user' => auth()->user(),
             'token_type' => 'Bearer',
             'expires_in' => auth()->factory()->getTTL() * 60
         ]);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\ViewEmployee;
 use App\Traits\ConnectHana;
 use App\Models\User;
 use App\Traits\MasterData;
@@ -75,9 +76,18 @@ class MasterUserController extends Controller
                 ->limit($row_data)
                 ->get();
 
+            $divisions = ViewEmployee::select('Department')->distinct()->get();
+            $arr_division = [];
+            foreach ($divisions as $division) {
+                $arr_division[] = [
+                    'name' => $division->Department
+                ];
+            }
+
             $result = array_merge($result, [
                 "rows" => $all_data,
                 "filter" => ['Username', 'Name', 'Department'],
+                'division'=> $arr_division
             ]);
             return response()->json($result);
         } else {
@@ -102,11 +112,17 @@ class MasterUserController extends Controller
         }
 
         $form = $request->form;
+//        $roles = $request->form['role'];
+//        foreach ($roles as $role) {
+//            return response()->json($role['id']);
+//        }
+        //return response()->json($form);
 
         DB::beginTransaction();
         try {
             $data = [
-                'username' => $form['username']
+                'username' => $form['username']['Nik'],
+                'is_admin_subwh' => $form['is_admin_subwh'],
             ];
 
             $user = User::create($data);
@@ -114,6 +130,10 @@ class MasterUserController extends Controller
             $this->storeUserRole($request, $user);
 
             $this->storeUserApps($request, $user);
+
+            $this->storeUseDivision($request, $user);
+
+            $this->storeUseWhs($request, $user);
 
             DB::commit();
 

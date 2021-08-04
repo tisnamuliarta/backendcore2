@@ -122,10 +122,6 @@ class TransactionReservationController extends Controller
             $pr_no = ($value->SAP_PRNo) ? $value->SAP_PRNo : null;
             $single_data[] = $query->select(
                 "RESV_H.*",
-                // DB::raw('(
-                //     SELECT "DocNum"
-                //     FROM ' . $db_name . '."OPRQ"
-                //     where ' . $db_name . '."OPRQ"."DocEntry" = RESV_H."SAP_PRNo") AS "SAP_PRNo"'),
                 DB::raw('( SELECT STRING_AGG(X."PR_NO", \', \')
                     FROM (
 
@@ -154,28 +150,7 @@ class TransactionReservationController extends Controller
                             )  AS X
                       ) AS  "SAP_GINo"
                 '),
-                // DB::raw('(SELECT STRING_AGG(T0."DocNum",\', \') as "GI_No"
-                //     FROM ' . $db_name . '."@DGN_EI_OIGR" G0
-                //     LEFT JOIN  ' . $db_name . '."@DGN_EI_IGR1"  G1  ON G0."DocEntry" = G1."DocEntry"
-                //     LEFT JOIN  ' . $db_name . '.IGE1 T1 ON T1."U_DGN_IReqId" = G1."DocEntry" AND T1."U_DGN_IReqLineId" = G1."LineId"
-                //     LEFT JOIN  ' . $db_name . '.OIGE T0 ON T1."DocEntry" = T0."DocEntry"
-                //     WHERE G0."DocEntry" = RESV_H."SAP_GIRNo") AS "SAP_GINo"'),
                 "RESV_H.Company as U_DbCode",
-                // DB::raw(
-                //     '(
-                //         SELECT STRING_AGG(X."PONum",\', \') AS "PONum"
-                //         FROM
-                //         (
-                //             SELECT DISTINCT T1."DocNum" AS "PONum"
-                //             FROM  ' . $db_name . '."POR1" AS T0
-                //             LEFT JOIN ' . $db_name . '."OPOR" AS T1 ON T0."DocEntry" = T1."DocEntry"
-                //             WHERE T0."BaseType" = \'1470000113\'
-                //             AND T0."BaseEntry" = ' . $schema . '.RESV_H."SAP_PRNo"
-                //             AND T1."CANCELED" =\'N\'
-                //         ) AS  X
-
-                //     ) AS "PONum"'
-                // ),
                 DB::raw(
                     '(
                        SELECT STRING_AGG(X."PONum", \', \') AS "PONum"
@@ -188,22 +163,6 @@ class TransactionReservationController extends Controller
                             ) AS X
                    ) AS "PONum"'
                 ),
-                // DB::raw('(
-                //     SELECT STRING_AGG(X."GRPO_NO",\', \') AS "GRPO_NO"
-                //     FROM
-                //     (
-                //         SELECT DISTINCT  T2."DocNum" AS "GRPO_NO"
-                //         FROM ' . $schema . '."RESV_H" R1
-                //         LEFT JOIN ' . $schema . '."RESV_D" R2 ON R1."U_DocEntry" = R2."U_DocEntry"
-                //         LEFT JOIN ' . $db_name . '."POR1" T0  ON R1."SAP_PRNo" = T0."BaseEntry" AND  T0."BaseType"  = \'1470000113\'  AND R2."ItemCode" = T0."ItemCode"
-                //         LEFT JOIN ' . $db_name . '."PDN1" T1 ON T0."DocEntry" = T1."BaseEntry" AND T1."BaseType" = T0."ObjType" AND T1."BaseLine" = T0."LineNum"
-                //         LEFT JOIN ' . $db_name . '."OPDN" T2 ON T1."DocEntry" = T2."DocEntry"
-                //         WHERE T0."BaseType" = \'1470000113\'
-                //         AND R1."U_DocEntry" = ' . $schema . '.RESV_H."U_DocEntry"
-                //         AND T0."BaseEntry" = ' . $schema . '.RESV_H."SAP_PRNo"   --- Ini nomor di RESV_H.SAP_PRNo
-                //         AND T2."CANCELED" =\'N\'
-                //     ) AS  X
-                // ) AS "GRPONum"'),
                 DB::raw('(
                        SELECT STRING_AGG(X."GRPO_NO", \', \') AS "GRPO_NO"
                        FROM (
@@ -297,15 +256,6 @@ class TransactionReservationController extends Controller
         }
         // set created at
         $created = (!empty($header)) ? $header->created_at : Carbon::now();
-        // process header
-//        $division = Division::where("U_DocEntry", "=", $request->Division['U_DocEntry'])->first();
-//        $department = Department::where("U_DocEntry", "=", $division->U_DeptEntry)->first();
-//        if (!$department) {
-//            return response()->json([
-//                "errors" => true,
-//                "message" => "Cannot Find Department!"
-//            ]);
-//        }
         $doc_entry = $this->processHeaderDoc($header, $created, $request);
         if ($doc_entry) {
             //ToDo
@@ -374,60 +324,54 @@ class TransactionReservationController extends Controller
      *
      * @return int|mixed
      */
-    protected function processHeaderDoc($header, $created, $request): int
+    protected function processHeaderDoc($header, $created, $request)
     {
+        $data = [
+            'Company' => $request->form['CompanyName'],
+            'RequiredDate' => $request->form['RequiredDate'],
+            'DocDate' => $request->form['DocDate'],
+            'RequestType' => $request->form['RequestType'],
+            'Memo' => $request->form['Memo'],
+            'U_NIK' => $request->form['U_NIK'],
+            'WhsCode' => $request->form['WhsCode'],
+            'WhTo' => $request->form['WhTo'],
+            'Requester' => $request->form['U_NIK'],
+            'RequesterName' => $request->form['RequesterName'],
+            'Division' => $request->form['Division'],
+            'Department' => $request->form['Division'],
+            'UrgentReason' => $request->form['UrgentReason'],
+        ];
         if ($header) {
+            $add_data = [
+                'UpdateDate' => date('Y-m-d'),
+                'UpdateTime' => date('H:i:s'),
+                'UpdatedBy' => Auth::user()->username,
+            ];
             DB::connection('laravelOdbc')
                 ->table('RESV_H')
                 ->where('U_DocEntry', '=', $header->U_DocEntry)
-                ->update([
-                    'Company' => $request->form['CompanyName'],
-                    'RequiredDate' => $request->form['RequiredDate'],
-                    'DocDate' => $request->form['DocDate'],
-                    'RequestType' => $request->form['RequestType'],
-                    'Memo' => $request->form['Memo'],
-                    'U_NIK' => $request->form['U_NIK'],
-                    'WhsCode' => $request->form['WhsCode'],
-                    'WhTo' => $request->form['WhTo'],
-                    'UpdateDate' => date('Y-m-d'),
-                    'UpdateTime' => date('H:i:s'),
-                    'UpdatedBy' => Auth::user()->username,
-                    'Requester' => $request->form['U_NIK'],
-                    'RequesterName' => $request->form['RequesterName'],
-                    'Division' => $request->form['Division'],
-                    'Department' => $request->form['Division'],
-                ]);
+                ->update(array_merge($data, $add_data));
 
-            $doc_num = $header->U_DocEntry;
+            $data_header = DB::connection('laravelOdbc')
+                ->table('RESV_H')
+                ->where('U_DocEntry', '=', $header->U_DocEntry)
+                ->first();
+            $doc_num = $data_header['U_DocEntry'];
         } else {
             $doc_entry = ReservationHeader::orderBy("U_DocEntry", "DESC")->first();
-
-            $header = new ReservationHeader();
-            //$header->U_DocEntry = ($doc_entry) ? ($doc_entry->U_DocEntry + 1) : 1;
-            $header->Company = $request->form['CompanyName'];
-            $header->RequiredDate = $request->form['RequiredDate'];
-            $header->DocDate = $request->form['DocDate'];
-            $header->RequestType = $request->form['RequestType'];
-            $header->Memo = $request->form['Memo'];
-            $header->U_NIK = $request->form['U_NIK'];
-            $header->WhsCode = $request->form['WhsCode'];
-            $header->WhTo = $request->form['WhTo'];
-            $header->Token = $request->form['Token'];
-            $header->CreateDate = date('Y-m-d');
-            $header->CreateTime = date('H:i:s');
-            $header->DocNum = $this->generateDocNum(date('Y-m-d H:i:s'));
-            $header->CreatedBy = Auth::user()->username;
-            $header->CreatedName = Auth::user()->name;
-            $header->Requester = $request->form['U_NIK'];
-            $header->RequesterName = $request->form['RequesterName'];
-            $header->Division = $request->form['Division'];
-            $header->Department = $request->form['Division'];
-            $header->Canceled = 'N';
-            $header->DocStatus = 'D';
-            $header->ApprovalStatus = '-';
-            $header->save();
-
-            $doc_num = $header->U_DocEntry;
+            $add_data = [
+                'Token' => $request->form['Token'],
+                'CreateDate' => date('Y-m-d'),
+                'CreateTime' => date('H:i:s'),
+                'DocNum' => $this->generateDocNum(date('Y-m-d H:i:s')),
+                'CreatedBy' => Auth::user()->username,
+                'CreatedName' => Auth::user()->name,
+                'Canceled' => 'N',
+                'DocStatus' => 'D',
+                'ApprovalStatus' => '-',
+            ];
+            $data_header = ReservationHeader::create(array_merge($data, $add_data));
+            $doc_num = $data_header->U_DocEntry;
         }
         return $doc_num;
     }
@@ -531,7 +475,8 @@ class TransactionReservationController extends Controller
                         }
                     }
 
-                    if ($items['NPB'] == 'Y' && ($form['RequestType'] == 'Normal' || $form['RequestType'] == 'For Restock SubWH')) {
+                    if ($items['NPB'] == 'Y' && ($form['RequestType'] == 'Normal'
+                            || $form['RequestType'] == 'For Restock SubWH')) {
                         if (empty($items['OtherResvNo'])) {
                             return response()->json([
                                 "errors" => true,
@@ -546,7 +491,8 @@ class TransactionReservationController extends Controller
                                 if (!$check_details) {
                                     return response()->json([
                                         "errors" => true,
-                                        "message" => "Line $line: Other Reservation No with this itemcode is not valid!",
+                                        "message" => "Line $line: Other Reservation No with this
+                                        itemcode is not valid!",
                                     ]);
                                 }
                             } else {
@@ -856,16 +802,8 @@ class TransactionReservationController extends Controller
         }
         // set created at
         $created = (!empty($header)) ? $header->created_at : Carbon::now();
-        // process header
-//        $division = Division::where("U_DocEntry", "=", $request->Division['U_DocEntry'])->first();
-//        $department = Department::where("U_DocEntry", "=", $division->U_DeptEntry)->first();
-//        if (!$department) {
-//            return response()->json([
-//                "errors" => true,
-//                "message" => "Cannot Find Department!"
-//            ]);
-//        }
         $doc_entry = $this->processHeaderDoc($header, $created, $request);
+        //return response()->json($doc_entry);
         if ($doc_entry) {
             //ToDo
             return $this->loopDetails($details, $doc_entry, $form, $request);
@@ -954,6 +892,7 @@ class TransactionReservationController extends Controller
     public function submitApproval(Request $request)
     {
         $form = $request->form;
+        $details = collect($request->details);
         $cherry_token = $request->user()->cherry_token;
         $list_code = Http::post(env('CHERRY_REQ'), [
             'CommandName' => 'GetList',
@@ -965,10 +904,13 @@ class TransactionReservationController extends Controller
 
         $resv_code = '';
         foreach ($list_code['Data'] as $datum) {
-            if ($datum['Name'] == 'E-RESERVATION') {
+            if ($datum['Name'] == 'E-RESERVATION URGENT' && $form['RequestType'] == 'Urgent') {
+                $resv_code = $datum['Code'];
+            } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
                 $resv_code = $datum['Code'];
             }
         }
+
         $username = $request->user()->username;
         $company_code = $request->user()->company_code;
 
@@ -1108,12 +1050,6 @@ class TransactionReservationController extends Controller
                             )  AS X
                       ) AS  "SAP_GINo"
                 '),
-                // DB::raw('(SELECT STRING_AGG(T0."DocNum",\', \') as "GI_No"
-                //     FROM ' . $db_name . '."@DGN_EI_OIGR" G0
-                //     LEFT JOIN  ' . $db_name . '."@DGN_EI_IGR1"  G1  ON G0."DocEntry" = G1."DocEntry"
-                //     LEFT JOIN  ' . $db_name . '.IGE1 T1 ON T1."U_DGN_IReqId" = G1."DocEntry" AND T1."U_DGN_IReqLineId" = G1."LineId"
-                //     LEFT JOIN  ' . $db_name . '.OIGE T0 ON T1."DocEntry" = T0."DocEntry"
-                //     WHERE G0."DocEntry" = RESV_H."SAP_GIRNo") AS "SAP_GINo"'),
                 DB::raw('CONCAT(OUSR_H."U_UserName", CONCAT( \'/\', OUSR_H."U_NIK")) AS "UserName"'),
                 DB::raw('CONCAT(OUSR_H."U_Division", CONCAT( \'/\', OUSR_H."U_Department")) AS "Department"')
             )

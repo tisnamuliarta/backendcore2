@@ -1,19 +1,18 @@
 <?php
 
-namespace App\Models\Resv;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class ReqItem extends Model
+class UserDivision extends Model
 {
+    use HasFactory;
+
     /**
      * The attributes that are mass assignable.
      *
      * @var array
      */
-    public $timestamps = false;
-    protected $connection = 'laravelOdbc';
     protected $guarded = [];
-    protected $table = 'U_OITM';
 }

@@ -16,3 +16,4 @@ Route::post('submit-approval', [TransactionReservationController::class, 'submit
 Route::post('action', [TransactionApprovalController::class, 'action']);
 
 Route::apiResource('master', TransactionReservationController::class);
+Route::apiResource("req-item", \App\Http\Controllers\Reservation\ReqItemController::class);

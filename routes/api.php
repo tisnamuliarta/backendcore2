@@ -20,7 +20,6 @@ Route::group(['middleware' => ['api', 'auth:api']], function () {
         Route::post('/refresh', [AuthController::class, 'refresh']);
     });
 
-    Route::get('/table', [HomeController::class, 'table']);
     Route::get('home-data', [HomeController::class, 'homeData']);
     Route::get('menus', [HomeController::class, 'menus']);
 
@@ -28,15 +27,15 @@ Route::group(['middleware' => ['api', 'auth:api']], function () {
     Route::get('latest-req-item', [MasterDataController::class, 'getLatestRequest']);
     Route::get('list-latest-req', [MasterDataController::class, 'getListRequest']);
 
-    Route::apiResource("req-item", 'Reservation\ReqItemController');
-
     Route::prefix('reservation')
         ->group(__DIR__ . '/transaction/reservation.php');
 
     Route::group([], __DIR__ . '/transaction/inventory.php');
 
     Route::group(['prefix' => 'master'], function () {
+        Route::get('employees', [\App\Http\Controllers\Master\MasterEmployeeController::class, 'index']);
         Route::get('division', [\App\Http\Controllers\Master\MasterCompanyController::class, 'division']);
+        Route::get('whs', [\App\Http\Controllers\Master\MasterWhsController::class, 'index']);
         Route::prefix('users')
             ->group(__DIR__ . '/master/user.php');
 

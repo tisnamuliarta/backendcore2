@@ -28,7 +28,7 @@ class ReqItemController extends Controller
         $offset = ($pages - 1) * $row_data;
 
         $result = array();
-        $query = ReqItem::selectRaw("*, 'actions' as ACTIONS");
+        $query = ReqItem::selectRaw("*, 'Action' as Action");
 
         $result["total"] = $query->count();
 
@@ -70,14 +70,12 @@ class ReqItemController extends Controller
             $data->U_CreatedBy = $request->user()->U_UserID;
             $data->save();
 
-            return response()->json([
+            return $this->success([
                 "errors" => false,
-                "message" => "Data inserted!"
-            ]);
+            ], "Data inserted!");
         } catch (\Exception $exception) {
-            return response()->json([
+            return $this->error($exception->getMessage(), '422', [
                 "errors" => true,
-                "message" => $exception->getMessage(),
                 "Trace" => $exception->getTrace()
             ]);
         }
@@ -153,14 +151,12 @@ class ReqItemController extends Controller
             $data->U_Supporting = $form['U_Supporting'];
             $data->save();
 
-            return response()->json([
+            return $this->success([
                 "errors" => false,
-                "message" => "Data updated!"
-            ]);
+            ], "Data updated!");
         } catch (\Exception $exception) {
-            return response()->json([
+            return $this->error($exception->getMessage(), '422', [
                 "errors" => true,
-                "message" => $exception->getMessage(),
                 "Trace" => $exception->getTrace()
             ]);
         }

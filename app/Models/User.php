@@ -13,6 +13,8 @@ class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, Notifiable, HasRoles;
 
+    protected $connection = 'sqlsrv';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -30,6 +32,7 @@ class User extends Authenticatable implements JWTSubject
         'location',
         'company_code',
         'employee_code',
+        'is_admin_subwh',
     ];
 
     /**
