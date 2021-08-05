@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\UserDivision;
 use App\Models\ViewEmployee;
 use App\Traits\ConnectHana;
 use App\Models\User;
@@ -76,6 +77,69 @@ class MasterUserController extends Controller
                 ->limit($row_data)
                 ->get();
 
+            $array_user = [];
+            foreach ($all_data as $item) {
+                $user_roles = User::leftJoin('model_has_roles', 'model_has_roles.model_id', 'users.id')
+                    ->where('users.id', $item->id)
+                    ->select('model_has_roles.role_id')
+                    ->get();
+                $arr_user_role = [];
+                foreach ($user_roles as $user_role) {
+                    $arr_user_role[] = (int)$user_role->role_id;
+                }
+
+                $app_access = User::leftJoin('user_apps', 'user_apps.user_id', 'users.id')
+                    ->leftJoin('applications', 'user_apps.app_id', 'applications.id')
+                    ->where('users.id', $item->id)
+                    ->select('user_apps.app_id')
+                    ->get();
+
+                $arr_user_app = [];
+                foreach ($app_access as $user_app) {
+                    $arr_user_app[] = (int)$user_app->app_id;
+                }
+
+                $divisions = User::leftJoin('user_divisions', 'user_divisions.user_id', 'users.id')
+                    ->where('users.id', $item->id)
+                    ->select('user_divisions.division_name')
+                    ->get();
+
+                $arr_user_division = [];
+                foreach ($divisions as $division) {
+                    $arr_user_division[] = $division->division_name;
+                }
+
+                $whs = User::leftJoin('user_whs', 'user_whs.user_id', 'users.id')
+                    ->where('users.id', $item->id)
+                    ->select('user_whs.whs_code')
+                    ->get();
+                $arr_user_whs = [];
+                foreach ($whs as $itemwhs) {
+                    $arr_user_whs[] = $itemwhs->whs_code;
+                }
+
+                $array_user[] = [
+                    'Action' => $item->Action,
+                    'active' => $item->active,
+                    'company' => $item->company,
+                    'company_code' => $item->company_code,
+                    'department' => $item->department,
+                    'email' => $item->email,
+                    'id' => $item->id,
+                    'is_admin_subwh' => $item->is_admin_subwh,
+                    'location' => $item->location,
+                    'name' => $item->name,
+                    'position' => $item->position,
+                    'role_name' => $item->role_name,
+                    'username' => $item->username,
+                    'role' => $arr_user_role,
+                    'apps' => $arr_user_app,
+                    'division' => $arr_user_division,
+                    'whs' => $arr_user_whs
+                ];
+            }
+
+            //return response()->json($array_user);
             $divisions = ViewEmployee::select('Department')->distinct()->get();
             $arr_division = [];
             foreach ($divisions as $division) {
@@ -85,9 +149,9 @@ class MasterUserController extends Controller
             }
 
             $result = array_merge($result, [
-                "rows" => $all_data,
+                "rows" => $array_user,
                 "filter" => ['Username', 'Name', 'Department'],
-                'division'=> $arr_division
+                'division' => $arr_division,
             ]);
             return response()->json($result);
         } else {

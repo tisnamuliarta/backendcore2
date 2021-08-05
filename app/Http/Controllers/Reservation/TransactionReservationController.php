@@ -248,6 +248,13 @@ class TransactionReservationController extends Controller
 
         $details = collect($request->details);
         $form = $request->form;
+
+        if ($form['RequestType'] == 'Urgent' && empty($form['UrgentReason'])) {
+            return response()->json([
+                "errors" => true,
+                "message" => "Request Type Urgent Required Reason For That!"
+            ]);
+        }
         $doc_num = null;
         // get header
         $header = null;
@@ -358,7 +365,6 @@ class TransactionReservationController extends Controller
                 ->first();
             $doc_num = $data_header['U_DocEntry'];
         } else {
-            $doc_entry = ReservationHeader::orderBy("U_DocEntry", "DESC")->first();
             $add_data = [
                 'Token' => $request->form['Token'],
                 'CreateDate' => date('Y-m-d'),
@@ -370,8 +376,13 @@ class TransactionReservationController extends Controller
                 'DocStatus' => 'D',
                 'ApprovalStatus' => '-',
             ];
-            $data_header = ReservationHeader::create(array_merge($data, $add_data));
-            $doc_num = $data_header->U_DocEntry;
+
+            DB::connection('laravelOdbc')
+                ->table('RESV_H')
+                ->insert(array_merge($data, $add_data));
+
+            $doc_entry = ReservationHeader::orderBy("U_DocEntry", "DESC")->first();
+            $doc_num = $doc_entry->U_DocEntry;
         }
         return $doc_num;
     }
@@ -789,6 +800,13 @@ class TransactionReservationController extends Controller
 
         $details = collect($request->details);
         $form = $request->form;
+
+        if ($form['RequestType'] == 'Urgent' && empty($form['UrgentReason'])) {
+            return response()->json([
+                "errors" => true,
+                "message" => "Request Type Urgent Required Reason For That!"
+            ]);
+        }
         $doc_num = null;
         // get header
         $header = $this->getHeaderDoc($id, $request);
@@ -891,92 +909,116 @@ class TransactionReservationController extends Controller
      */
     public function submitApproval(Request $request)
     {
-        $form = $request->form;
-        $details = collect($request->details);
-        $cherry_token = $request->user()->cherry_token;
-        $list_code = Http::post(env('CHERRY_REQ'), [
-            'CommandName' => 'GetList',
-            'ModelCode' => 'ExternalDocuments',
-            'UserName' => $request->user()->username,
-            'Token' => $cherry_token,
-            'ParameterData' => []
-        ]);
-
-        $resv_code = '';
-        foreach ($list_code['Data'] as $datum) {
-            if ($datum['Name'] == 'E-RESERVATION URGENT' && $form['RequestType'] == 'Urgent') {
-                $resv_code = $datum['Code'];
-            } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
-                $resv_code = $datum['Code'];
-            }
-        }
-
-        $username = $request->user()->username;
-        $company_code = $request->user()->company_code;
-
-        $response = Http::get(env('CHERRY_CHECK_EMPLOYEE'), [
-            'username' => $username,
-            'token' => $cherry_token,
-            'companyCode' => $company_code,
-            'q' => $form['RequesterName']
-        ]);
-
-        $employee_code = '';
-        foreach ($response->collect() as $item) {
-            if ($item['Nik'] == $form['Requester']) {
-                $employee_code = $item['EmployeeCode'];
-            }
-        }
-
-        $response = Http::post(env('CHERRY_REQ'), [
-            'CommandName' => 'Submit',
-            'ModelCode' => 'GADocuments',
-            'UserName' => $username,
-            'Token' => $cherry_token,
-            'ParameterData' => [],
-            'ModelData' => [
-                'TypeCode' => $resv_code,
-                'CompanyCode' => $company_code,
-                'Date' => date('m/d/Y'),
-                'EmployeeCode' => $employee_code,
-                'DocumentReferenceID' => $form['DocNum'],
-                'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/e-resv/api/callback',
-                'DocumentContent' => '
-                    <table>
-                        <tr>
-                            <td>DocNum</td>
-                            <td>' . $form['DocNum'] . '</td>
-                        </tr>
-                        <tr>
-                            <td>Request Type</td>
-                            <td>' . $form['RequestType'] . '</td>
-                        </tr>
-                        <tr>
-                            <td>Request Date</td>
-                            <td>' . $form['DocDate'] . '</td>
-                        </tr>
-                    </table>
-                ',
-                'Notes' => $form['Memo']
-            ]
-        ]);
-        if ($response['MessageType'] == 'error') {
-            return response()->json($response);
-        }
-
-        ReservationHeader::where('U_DocEntry', '=', $form['U_DocEntry'])
-            ->update([
-                'ApprovalStatus' => 'W'
+        try {
+            $form = $request->form;
+            $details = $request->details;
+            $cherry_token = $request->user()->cherry_token;
+            $list_code = Http::post(env('CHERRY_REQ'), [
+                'CommandName' => 'GetList',
+                'ModelCode' => 'ExternalDocuments',
+                'UserName' => $request->user()->username,
+                'Token' => $cherry_token,
+                'ParameterData' => []
             ]);
 
-        return response()->json([
-            "errors" => false,
-            "U_DocEntry" => $form['U_DocEntry'],
-            "message" => ($form['U_DocEntry'] != 'null') ? "Data updated!" : "Data inserted!",
-        ]);
+            $reservation_code = '';
+            foreach ($list_code['Data'] as $datum) {
+                if ($datum['Name'] == 'E-RESERVATION URGENT' && $form['RequestType'] == 'Urgent') {
+                    $reservation_code = $datum['Code'];
+                } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
+                    $reservation_code = $datum['Code'];
+                }
+            }
 
-        // App/Httt/Traits/Approval
-        // return $this->actionApproval($request, $form);
+            $username = $request->user()->username;
+            $company_code = $request->user()->company_code;
+
+            $response = Http::get(env('CHERRY_CHECK_EMPLOYEE'), [
+                'username' => $username,
+                'token' => $cherry_token,
+                'companyCode' => $company_code,
+                'q' => $form['RequesterName']
+            ]);
+
+            $employee_code = '';
+            foreach ($response->collect() as $item) {
+                if ($item['Nik'] == $form['Requester']) {
+                    $employee_code = $item['EmployeeCode'];
+                }
+            }
+
+            $document_content = '
+            <table>
+                <tr>
+                    <th>Item Code</th>
+                    <th>Item Name</th>
+                    <th>Category</th>
+                    <th>UoM</th>
+                    <th>UoM</th>
+                    <th>Req Qty</th>
+                    <th>Req Date</th>
+                    <th>Notes</th>
+                </tr>
+                <tr>
+        ';
+
+            foreach ((object)$details as $detail) {
+                $detail = (object)$detail;
+                $document_content .= '
+                <td>' . $detail->ItemCode . '</td>
+                <td>' . $detail->ItemName . '</td>
+                <td>' . $detail->ItemCategory . '</td>
+                <td>' . $detail->UoMCode . '</td>
+                <td>' . $detail->ReqQty . '</td>
+                <td>' . $detail->ReqDate . '</td>
+                <td>' . $detail->ReqNotes . '</td>
+            ';
+            }
+
+            $document_content .= '</tr>
+            </table>';
+
+            //return response()->json($document_content);
+
+            $response = Http::post(env('CHERRY_REQ'), [
+                'CommandName' => 'Submit',
+                'ModelCode' => 'GADocuments',
+                'UserName' => $username,
+                'Token' => $cherry_token,
+                'ParameterData' => [],
+                'ModelData' => [
+                    'TypeCode' => $reservation_code,
+                    'CompanyCode' => $company_code,
+                    'Date' => date('m/d/Y'),
+                    'EmployeeCode' => $employee_code,
+                    'DocumentReferenceID' => $form['DocNum'],
+                    'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/e-resv/api/callback',
+                    'DocumentContent' => $document_content,
+                    'Notes' => $form['Memo']
+                ]
+            ]);
+            if ($response['MessageType'] == 'error') {
+                return $this->error($response->collect()['Message'], '422', [
+                    'error' => true,
+                ]);
+            }
+
+            ReservationHeader::where('U_DocEntry', '=', $form['U_DocEntry'])
+                ->update([
+                    'ApprovalStatus' => 'W'
+                ]);
+
+            return response()->json([
+                "errors" => false,
+                "U_DocEntry" => $form['U_DocEntry'],
+                "message" => ($form['U_DocEntry'] != 'null') ? "Data updated!" : "Data inserted!",
+            ]);
+        } catch (\Exception $exception) {
+            return $this->error($exception->getMessage(), '422', [
+                'error' => true,
+                'trace' => $exception->getTrace()
+            ]);
+        }
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Master;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserCompany;
+use App\Models\UserDivision;
 use App\Models\UserItmGrp;
 use App\Models\UserWhs;
 use App\Models\ViewEmployee;
@@ -69,8 +70,12 @@ class MasterUserDataController extends Controller
             ->get();
 
         $department = substr($request->user()->department, 0, 4);
-
-        $user_list = ViewEmployee::where('Department', 'LIKE', '%' . $department . '%')
+        $user_division = UserDivision::where('user_id', $request->user()->id)->get();
+        $arr_user_div = [];
+        foreach ($user_division as $item) {
+            $arr_user_div[] = $item->division_name;
+        }
+        $user_list = ViewEmployee::whereIn('Department', $arr_user_div)
             ->orderBy('Name')
             ->get();
 

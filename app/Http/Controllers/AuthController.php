@@ -106,7 +106,9 @@ class AuthController extends Controller
             $this->assignRolePermissionToUser($username);
 
             if ($app_name == 'E-RESERVATION') {
-                $this->assignUserWareHouse($username, $company);
+                if ($username != 'manager') {
+                    $this->assignUserWareHouse($username, $company);
+                }
 
                 $this->assignUserItemGroups($username, $company);
             }

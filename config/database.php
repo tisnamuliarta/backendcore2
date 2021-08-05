@@ -78,6 +78,23 @@ return [
             'sslmode' => 'prefer',
         ],
 
+        'laravelOdbc' => [
+            'driver' => 'odbc',
+            'dsn' => env('LARAVEL_ODBC_DSN'),
+            'database' => env('LARAVEL_ODBC_DATABASE'),
+            'host' => env('LARAVEL_ODBC_HOST'),
+            'username' => env('LARAVEL_ODBC_USERNAME'),
+            'password' => env('LARAVEL_ODBC_PASSWORD'),
+            'prefix' => env('LARAVEL_ODBC_DATABASE'),
+            'options' => [
+                'processor' => App\Processors\CustomProcessor::class,
+                'grammar' => [
+                    'query' => App\Grammars\CustomQueryGrammar::class,
+//                    'schema' => App\Grammars\CustomSchemaGrammar::class,
+                ]
+            ]
+        ],
+
         'sqlsrv' => [
             'driver' => 'sqlsrv',
             'url' => env('DATABASE_URL'),
@@ -103,24 +120,6 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
         ],
-
-        'laravelOdbc' => [
-            'driver' => 'odbc',
-            'dsn' => env('LARAVEL_ODBC_DSN'),
-            'database' => env('LARAVEL_ODBC_DATABASE'),
-            'host' => env('LARAVEL_ODBC_HOST'),
-            'username' => env('LARAVEL_ODBC_USERNAME'),
-            'password' => env('LARAVEL_ODBC_PASSWORD'),
-            'prefix' => env('LARAVEL_ODBC_DATABASE'),
-            'options' => [
-                'processor' => App\Processors\CustomProcessor::class,
-                'grammar' => [
-                    'query' => App\Grammars\CustomQueryGrammar::class,
-//                    'schema' => App\Grammars\CustomSchemaGrammar::class,
-                ]
-            ]
-        ],
-
     ],
 
     /*
