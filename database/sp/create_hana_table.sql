@@ -70,6 +70,7 @@ CREATE COLUMN TABLE IMIP_ERESV.U_OITM (
     "U_CreatedBy" INTEGER null,
     "U_DocEntry" BIGINT not null,
     "U_Comments" VARCHAR (200) null,
+    "U_CreatedAt" TIMESTAMP default CURRENT_TIMESTAMP null,
     PRIMARY KEY ("U_DocEntry")
     );
 

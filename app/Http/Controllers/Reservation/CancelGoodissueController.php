@@ -13,8 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use App\Providers\RouteServiceProvider;
 use App\Models\UserCompany;
-use App\Http\Controllers\Api\GoodissueController;
-use App\Http\Controllers\Master\MasterUserController;
+use App\Http\Controllers\Reservation\GoodissueController;
+use App\Http\Controllers\Master\MasterUserDataController;
 use PhpOffice\PhpWord\Exception\CopyFileException;
 use PhpOffice\PhpWord\Exception\CreateTemporaryFileException;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -745,7 +745,7 @@ class CancelGoodissueController extends Controller
         try {
             $result = [];
             $companyItem = [];
-            $master = new MasterUserController;
+            $master = new MasterUserDataController();
             $relation = $master->userRelationship($request);
             if (isset($relation->original['items'])) {
                 $companyItem = $relation->original['items'];

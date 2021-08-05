@@ -19,9 +19,10 @@ trait MasterData
     {
         $roles = $request->form['role'];
         foreach ($roles as $role) {
-            $role_id = Role::where('id', '=', $role['id'])->first();
+            $id = array_key_exists('id', (array)$role) ? $role['id'] : $role;
+            $role_id = Role::where('id', '=', $id)->first();
             $permissions = DB::select('EXEC sp_role_permissions ' . $role_id->id);
-            $user->assignRole($role_id);
+            $user->assignRole($role_id->name);
 
             foreach ($permissions as $permission) {
                 $this->actionStoreRolePermission($user, (array)$permission, 'index');
@@ -40,9 +41,10 @@ trait MasterData
     {
         $apps = $request->form['apps'];
         foreach ($apps as $app) {
+            $id = array_key_exists('id', (array)$app) ? $app['id'] : $app;
             UserApp::updateOrCreate([
                 'user_id' => $user->id,
-                'app_id' => $app['id']
+                'app_id' => $id
             ]);
         }
     }
@@ -55,9 +57,10 @@ trait MasterData
     {
         $data = $request->form['division'];
         foreach ($data as $app) {
+            $id = array_key_exists('name', (array)$app) ? $app['name'] : $app;
             UserDivision::updateOrCreate([
                 'user_id' => $user->id,
-                'division_name' => $app['name']
+                'division_name' => $id
             ]);
         }
     }
@@ -70,10 +73,11 @@ trait MasterData
     {
         $data = $request->form['whs'];
         foreach ($data as $app) {
+            $id = array_key_exists('name', (array)$app) ? $app['name'] : $app;
             UserWhs::updateOrCreate([
                 'user_id' => $user->id,
                 'db_code' => env('DB_SAP'),
-                'whs_code' => $app['name']
+                'whs_code' => $id
             ]);
         }
     }

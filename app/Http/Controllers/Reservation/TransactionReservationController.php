@@ -52,8 +52,9 @@ class TransactionReservationController extends Controller
         $filter = isset($request->filter) ? (string)$request->filter : $year_local;
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 20;
         $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "DocNum";
-        $order = isset($options->sortDesc[0]) ? "DESC" : "ASC";
+        $order = isset($options->sortDesc[0]) ? "ASC" : "DESC";
         $search = isset($request->search) ? (string)$request->search : "";
+        $search_status = isset($request->searchStatus) ? (string)$request->searchStatus : "";
         $select_data = isset($request->searchItem) ? (string)$request->searchItem : "DocNum";
         $offset = ($pages - 1) * $row_data;
         $username = $request->user()->username;
@@ -95,19 +96,35 @@ class TransactionReservationController extends Controller
 
                 return $data_query;
             })
+            ->when($search_status, function ($query) use ($search_status) {
+                $data_query = $query;
+                switch ($search_status) {
+                    case '-':
+                        $data_query->whereRaw('"RESV_H"."ApprovalStatus" = \'-\' ');
+                        break;
+                    case 'Waiting':
+                        $data_query->whereRaw('"RESV_H"."ApprovalStatus" = \'W\' ');
+                        break;
+                    case 'Approved':
+                        $data_query->whereRaw('"RESV_H"."ApprovalStatus" = \'Y\' ');
+                        break;
+                    case 'Rejected':
+                        $data_query->whereRaw('"RESV_H"."ApprovalStatus" = \'N\' ');
+                        break;
+                    case 'All':
+                        $data_query->whereRaw('"RESV_H"."ApprovalStatus" LIKE \'%%\' ');
+                        break;
+                }
+                return $data_query;
+            })
             ->when($username, function ($query) use (
                 $username,
                 $user_id
             ) {
-                // dd($username);
                 $data_query = $query;
-//                if ($username != '88101989') {
-//                    $data_query->where("RESV_H.CreatedBy", "=", $user_id);
-//                }
                 $data_query->where("RESV_H.CreatedBy", "=", $user_id);
                 return $data_query;
-            })
-            ->orderBY($sorts, $order);
+            });
 
         $result["total"] = $query->count();
 
@@ -117,6 +134,7 @@ class TransactionReservationController extends Controller
         //dd($all_result);
 
         $single_data = [];
+        $db_name = '';
         foreach ($all_result as $key => $value) {
             $db_name = $value->Company;
             $pr_no = ($value->SAP_PRNo) ? $value->SAP_PRNo : null;
@@ -208,8 +226,8 @@ class TransactionReservationController extends Controller
                     CASE
                         WHEN RESV_H."ApprovalStatus" = \'W\' THEN \'Waiting\'
                         WHEN RESV_H."ApprovalStatus" = \'P\' THEN \'Pending\'
-                        WHEN RESV_H."ApprovalStatus" = \'N\' THEN \'Reject\'
-                        WHEN RESV_H."ApprovalStatus" = \'Y\' THEN \'Approve\'
+                        WHEN RESV_H."ApprovalStatus" = \'N\' THEN \'Rejected\'
+                        WHEN RESV_H."ApprovalStatus" = \'Y\' THEN \'Approved\'
                         WHEN RESV_H."ApprovalStatus" = \'-\' THEN \'-\'
                     END AS "AppStatus"
                 '),
@@ -217,15 +235,19 @@ class TransactionReservationController extends Controller
             );
         }
 
-        $all_data = $query->offset($offset)
+        $all_data = $query->orderBY('RESV_H.DocNum', $order)
+            ->offset($offset)
             ->limit($row_data)
             ->get();
 
         $filter = ["DocNum", "Company", "Req Name", "Req Type", "Req Date", "App Status"];
 
+        $document_status = ['All', 'Waiting', 'Approved', 'Rejected', '-'];
+
         $result = array_merge($result, [
             "rows" => $all_data,
             "filter" => $filter,
+            'status' => $document_status
         ]);
         return response()->json($result);
     }
@@ -922,13 +944,15 @@ class TransactionReservationController extends Controller
             ]);
 
             $reservation_code = '';
-            foreach ($list_code['Data'] as $datum) {
+            foreach ($list_code->collect()['Data'] as $datum) {
                 if ($datum['Name'] == 'E-RESERVATION URGENT' && $form['RequestType'] == 'Urgent') {
                     $reservation_code = $datum['Code'];
                 } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
                     $reservation_code = $datum['Code'];
                 }
             }
+
+            //return response()->json($reservation_code);
 
             $username = $request->user()->username;
             $company_code = $request->user()->company_code;
@@ -947,39 +971,10 @@ class TransactionReservationController extends Controller
                 }
             }
 
-            $document_content = '
-            <table>
-                <tr>
-                    <th>Item Code</th>
-                    <th>Item Name</th>
-                    <th>Category</th>
-                    <th>UoM</th>
-                    <th>UoM</th>
-                    <th>Req Qty</th>
-                    <th>Req Date</th>
-                    <th>Notes</th>
-                </tr>
-                <tr>
-        ';
-
-            foreach ((object)$details as $detail) {
-                $detail = (object)$detail;
-                $document_content .= '
-                <td>' . $detail->ItemCode . '</td>
-                <td>' . $detail->ItemName . '</td>
-                <td>' . $detail->ItemCategory . '</td>
-                <td>' . $detail->UoMCode . '</td>
-                <td>' . $detail->ReqQty . '</td>
-                <td>' . $detail->ReqDate . '</td>
-                <td>' . $detail->ReqNotes . '</td>
-            ';
-            }
-
-            $document_content .= '</tr>
-            </table>';
+            $document_content = view('email.approval_resv', compact('details'))->render();
 
             //return response()->json($document_content);
-
+            //return response()->json($reservation_code);
             $response = Http::post(env('CHERRY_REQ'), [
                 'CommandName' => 'Submit',
                 'ModelCode' => 'GADocuments',
@@ -992,7 +987,7 @@ class TransactionReservationController extends Controller
                     'Date' => date('m/d/Y'),
                     'EmployeeCode' => $employee_code,
                     'DocumentReferenceID' => $form['DocNum'],
-                    'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/e-resv/api/callback',
+                    'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore/api/callback',
                     'DocumentContent' => $document_content,
                     'Notes' => $form['Memo']
                 ]
@@ -1059,10 +1054,6 @@ class TransactionReservationController extends Controller
                     SELECT "U_UserName"
                     FROM ' . $schema . '."OUSR_H"
                     where ' . $schema . '."OUSR_H"."U_UserID" = RESV_H."CreatedBy") AS "CreatedUserBy"'),
-                // DB::raw('(
-                //     SELECT "DocNum"
-                //     FROM ' . $db_name . '."OPRQ"
-                //     where ' . $db_name . '."OPRQ"."DocEntry" = RESV_H."SAP_PRNo") AS "SAP_PRNo"'),
 
                 DB::raw('( SELECT STRING_AGG(X."PR_NO", \', \')
                     FROM (

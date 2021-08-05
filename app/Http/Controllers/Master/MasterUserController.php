@@ -187,17 +187,12 @@ class MasterUserController extends Controller
             $data = [
                 'username' => $form['username']['Nik'],
                 'is_admin_subwh' => $form['is_admin_subwh'],
+                'active' => $form['active'],
             ];
 
             $user = User::create($data);
 
-            $this->storeUserRole($request, $user);
-
-            $this->storeUserApps($request, $user);
-
-            $this->storeUseDivision($request, $user);
-
-            $this->storeUseWhs($request, $user);
+            $this->storeUserDetails($request, $user);
 
             DB::commit();
 
@@ -226,7 +221,7 @@ class MasterUserController extends Controller
             'form.role' => 'Role Field is required!',
             'form.active' => 'Status is required!',
         ];
-        $user_id = $request->user()->id;
+        $user_id = $request->form['id'];
         $validator = Validator::make($request->all(), [
             'form.username' => 'required|unique:users,username,' . $user_id,
             'form.apps' => 'required',
@@ -275,6 +270,21 @@ class MasterUserController extends Controller
     }
 
     /**
+     * @param $request
+     * @param $user
+     */
+    protected function storeUserDetails($request, $user)
+    {
+        $this->storeUserRole($request, $user);
+
+        $this->storeUserApps($request, $user);
+
+        $this->storeUseDivision($request, $user);
+
+        $this->storeUseWhs($request, $user);
+    }
+
+    /**
      * Update the specified resource in storage.
      *
      * @param \Illuminate\Http\Request $request
@@ -293,10 +303,16 @@ class MasterUserController extends Controller
 
         try {
             $data = [
-                'username' => $form['username']
+                'username' => $form['username'],
+                'is_admin_subwh' => $form['is_admin_subwh'],
+                'active' => $form['active'],
             ];
 
-            User::where("user_id", "=", $id)->update($data);
+            User::where("id", "=", $id)->update($data);
+
+            $user = User::find($id);
+
+            $this->storeUserDetails($request, $user);
 
             return $this->success([
                 "errors" => false

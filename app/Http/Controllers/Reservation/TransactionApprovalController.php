@@ -89,6 +89,7 @@ class TransactionApprovalController extends Controller
                     'DocDate' => $datum['Date'],
                     'Details' => $documents->collect()['Data'][0]['DocumentContent'],
                     'DocumentReferenceID' => $documents->collect()['Data'][0]['DocumentReferenceID'],
+                    'DocNum' => $documents->collect()['Data'][0]['DocumentReferenceID'],
                     'RequesterName' => $datum['RequesterName'],
                     'StatusId' => $datum['StatusId'],
                     'U_DocEntry' => $doc_entry->U_DocEntry,

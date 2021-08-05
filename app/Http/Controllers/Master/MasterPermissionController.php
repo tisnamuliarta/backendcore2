@@ -105,6 +105,7 @@ class MasterPermissionController extends Controller
                 'order_line' => $form['order_line'],
                 'is_crud' => $form['is_crud'],
                 'role' => $form['role'],
+                'guard_name' => 'api',
             ];
 
             if ($form['is_crud'] == 'Y') {

@@ -85,7 +85,7 @@ class MasterRolesController extends Controller
         try {
             $data = [
                 'name' => $form['name'],
-                'guard_name' => 'web',
+                'guard_name' => 'api',
                 'description' => $form['description'],
             ];
             Role::create($data);
@@ -162,7 +162,7 @@ class MasterRolesController extends Controller
         try {
             $data = [
                 'name' => $form['name'],
-                'guard_name' => 'web',
+                'guard_name' => 'api',
                 'description' => $form['description'],
             ];
 

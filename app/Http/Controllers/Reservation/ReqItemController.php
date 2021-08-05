@@ -25,10 +25,26 @@ class ReqItemController extends Controller
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 20;
         $sorts = isset($options->sortBy[0]) ? (string)$options->sortBy[0] : "U_Description";
         $order = isset($options->sortDesc[0]) ? (string)$options->sortDesc[0] : "desc";
+        $search_status = isset($request->searchStatus) ? (string)$request->searchStatus : "";
         $offset = ($pages - 1) * $row_data;
 
         $result = array();
-        $query = ReqItem::selectRaw("*, 'Action' as Action");
+        $query = ReqItem::selectRaw("*, 'Action' as Action")
+            ->when($search_status, function ($query) use ($search_status) {
+                $data_query = $query;
+                switch ($search_status) {
+                    case 'Pending':
+                        $data_query->whereRaw('"U_OITM"."U_Status" = \'Pending\' ');
+                        break;
+                    case 'Approved':
+                        $data_query->whereRaw('"U_OITM"."U_Status" = \'Approved\' ');
+                        break;
+                    case 'All':
+                        $data_query->whereRaw('"U_OITM"."U_Status" LIKE \'%%\' ');
+                        break;
+                }
+                return $data_query;
+            });
 
         $result["total"] = $query->count();
 
@@ -39,6 +55,12 @@ class ReqItemController extends Controller
 
         $result = array_merge($result, [
             "rows" => $all_data,
+            'documentStatus' => [
+                'All', 'Pending', 'Approved'
+            ],
+            'filter' => [
+                'Item Name', 'Item Code', 'Specification', 'UoM', 'Created By'
+            ]
         ]);
         return response()->json($result);
     }
@@ -67,7 +89,7 @@ class ReqItemController extends Controller
             $data->U_Status = array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending';
             $data->U_Remarks = $form['U_Remarks'];
             $data->U_Supporting = $form['U_Supporting'];
-            $data->U_CreatedBy = $request->user()->U_UserID;
+            $data->U_CreatedBy = $request->user()->name;
             $data->save();
 
             return $this->success([
