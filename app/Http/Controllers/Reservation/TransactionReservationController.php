@@ -122,7 +122,9 @@ class TransactionReservationController extends Controller
                 $user_id
             ) {
                 $data_query = $query;
-                $data_query->where("RESV_H.CreatedBy", "=", $user_id);
+                if ($user_id != 'manager') {
+                    $data_query->where("RESV_H.CreatedBy", "=", $user_id);
+                }
                 return $data_query;
             });
 
