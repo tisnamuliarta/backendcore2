@@ -9,6 +9,7 @@ use App\Models\UserDivision;
 use App\Models\UserItmGrp;
 use App\Models\UserWhs;
 use App\Models\ViewEmployee;
+use App\Traits\ConnectHana;
 use App\Traits\RolePermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,7 @@ use Spatie\Permission\Models\Permission;
 class MasterUserDataController extends Controller
 {
     use RolePermission;
+    use ConnectHana;
 
     /**
      * @param Request $request
@@ -62,7 +64,7 @@ class MasterUserDataController extends Controller
      */
     public function userRelationship(Request $request): \Illuminate\Http\JsonResponse
     {
-        $user_id = $request->user()->username;
+        $user_id = $request->user()->id;
         //$form = json_decode($request->form);
         $user_company = UserCompany::where("user_companies.user_id", $user_id)
             ->leftJoin('companies as company', 'company.id', 'user_companies.company_id')
@@ -124,26 +126,30 @@ class MasterUserDataController extends Controller
         // ]);
 
         $result = [];
-        $user_id = $request->user()->user_id;
+        $user_id = $request->user()->id;
         $companyItem = $request->companyItem;
         $arr = [];
         $connect = $this->connectHana();
-        $sql = 'select * from "IMIP_ERESV"."OUSR_OWHS" oc
-                left join "' . $companyItem . '"."@ADDON_CONFIG" ac
-                on oc."U_WhsCode"=ac."U_Value"
-                where ac."U_Description"=\'RESV_SUBWH_GI\' and oc."user_id"=' . $user_id . '
+        $sql = 'select * from "' . $companyItem . '"."@ADDON_CONFIG" B
+                where B."U_Description"=\'RESV_SUBWH_GI\'
         ';
+        //return response()->json($sql);
         $rs = odbc_exec($connect, $sql);
         if (!$rs) {
             exit("Error in SQL");
         }
         while (odbc_fetch_row($rs)) {
-            $arr[] = [
-                "U_WhsCode" => odbc_result($rs, "U_WhsCode"),
-            ];
+            $arr[] = odbc_result($rs, "U_Value");
         }
-        foreach ($arr as $item) {
-            $result[] = $item['U_WhsCode'];
+
+        $user_whs = UserWhs::whereIn('whs_code', $arr)
+            ->where('user_id', $user_id)
+            ->get();
+
+        //return response()->json($arr);
+
+        foreach ($user_whs as $item) {
+            $result[] = $item->whs_code;
         }
         return response()->json([
             "items" => $result

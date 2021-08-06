@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use App\Models\Permission;
 use App\Models\Role;
+use App\Models\User;
 
 trait RolePermission
 {
@@ -56,7 +57,28 @@ trait RolePermission
             foreach ($request->role as $item) {
                 $role = Role::where('id', '=', $item)->first();
                 $permissions = Permission::where('id', '=', $permission->id)->first();
+
                 $permissions->assignRole($role->name);
+
+                $this->assignPermissionToUser($permission, $role);
+            }
+        }
+    }
+
+    /**
+     * @param $permission
+     * @param $role
+     */
+    protected function assignPermissionToUser($permission, $role)
+    {
+        $users = User::leftJoin('model_has_roles', 'model_has_roles.model_id', 'users.id')
+            ->select('users.*')
+            ->where('model_has_roles.role_id', '=', $role->id)
+            ->get();
+
+        if ($users) {
+            foreach ($users as $user) {
+                $user->givePermissionTo($permission->name);
             }
         }
     }

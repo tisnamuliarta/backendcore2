@@ -36,6 +36,7 @@ Route::group(['middleware' => ['api', 'auth:api']], function () {
         Route::get('employees', [\App\Http\Controllers\Master\MasterEmployeeController::class, 'index']);
         Route::get('division', [\App\Http\Controllers\Master\MasterCompanyController::class, 'division']);
         Route::get('whs', [\App\Http\Controllers\Master\MasterWhsController::class, 'index']);
+        Route::get('item-group-code', [MasterDataController::class, 'getItemGroupCode']);
         Route::prefix('users')
             ->group(__DIR__ . '/master/user.php');
 

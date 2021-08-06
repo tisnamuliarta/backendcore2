@@ -52,9 +52,7 @@ class MasterUserController extends Controller
             $offset = ($pages - 1) * $row_data;
 
             $result = array();
-            $query = User::select('users.*', 'users.id AS Action', DB::raw("CONCAT(roles.name, ',') as role_name"))
-                ->leftJoin('model_has_roles', 'model_has_roles.model_id', 'users.id')
-                ->leftJoin('roles', 'roles.id', 'model_has_roles.role_id')
+            $query = User::select('users.*')
                 ->orderBy($sorts, $order);
 
             $result["total"] = $query->count();
@@ -80,12 +78,15 @@ class MasterUserController extends Controller
             $array_user = [];
             foreach ($all_data as $item) {
                 $user_roles = User::leftJoin('model_has_roles', 'model_has_roles.model_id', 'users.id')
+                    ->leftJoin('roles', 'roles.id', 'model_has_roles.role_id')
                     ->where('users.id', $item->id)
-                    ->select('model_has_roles.role_id')
+                    ->select('model_has_roles.role_id', 'roles.name')
                     ->get();
+                $arr_role_name = [];
                 $arr_user_role = [];
                 foreach ($user_roles as $user_role) {
                     $arr_user_role[] = (int)$user_role->role_id;
+                    $arr_role_name[] = $user_role->name;
                 }
 
                 $app_access = User::leftJoin('user_apps', 'user_apps.user_id', 'users.id')
@@ -118,6 +119,15 @@ class MasterUserController extends Controller
                     $arr_user_whs[] = $itemwhs->whs_code;
                 }
 
+                $item_groups = User::leftJoin('user_itm_grps', 'user_itm_grps.user_id', 'users.id')
+                    ->where('users.id', $item->id)
+                    ->select('user_itm_grps.item_group')
+                    ->get();
+                $arr_item_group = [];
+                foreach ($item_groups as $item_group) {
+                    $arr_item_group[] = $item_group->item_group;
+                }
+
                 $array_user[] = [
                     'Action' => $item->Action,
                     'active' => $item->active,
@@ -130,11 +140,12 @@ class MasterUserController extends Controller
                     'location' => $item->location,
                     'name' => $item->name,
                     'position' => $item->position,
-                    'role_name' => $item->role_name,
+                    'role_name' => implode(', ', $arr_role_name),
                     'username' => $item->username,
                     'role' => $arr_user_role,
                     'apps' => $arr_user_app,
                     'division' => $arr_user_division,
+                    'item_group' => $arr_item_group,
                     'whs' => $arr_user_whs
                 ];
             }
@@ -282,6 +293,8 @@ class MasterUserController extends Controller
         $this->storeUseDivision($request, $user);
 
         $this->storeUseWhs($request, $user);
+
+        $this->storeUserItemGroups($request, $user);
     }
 
     /**

@@ -92,26 +92,23 @@ class AuthController extends Controller
                 } else {
                     return $this->error($response['Message'], 401);
                 }
-            } else {
-                $user = User::where('username', '=', 'manager')->first();
-                $username = $user->id;
             }
+
+            $user = User::where('username', $username)->first();
 
             if (!$token = auth()->attempt($attr)) {
                 return $this->error('Credentials not match', 401);
             }
 
-            $company = $this->assignUserCompany($username);
+            $company = $this->assignUserCompany($user->id);
 
             $this->assignRolePermissionToUser($username);
 
-            if ($app_name == 'E-RESERVATION') {
-                if ($username != 'manager') {
-                    $this->assignUserWareHouse($username, $company);
-                }
-
-                $this->assignUserItemGroups($username, $company);
-            }
+//            if ($app_name == 'E-RESERVATION') {
+//                $this->assignUserWareHouse($user->id, $company);
+//
+//                $this->assignUserItemGroups($user->id, $company);
+//            }
 
             return response()->json([
                 'token' => $token,
@@ -222,43 +219,43 @@ class AuthController extends Controller
             $data = [
                 [
                     'item_group' => '100',
-                    'item_group_name' => 'Items',
+                    'item_group_name' => '100',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
                 [
                     'item_group' => '102',
-                    'item_group_name' => 'Services',
+                    'item_group_name' => '102',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
                 [
                     'item_group' => '107',
-                    'item_group_name' => 'xWork Supplies',
+                    'item_group_name' => '107',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
                 [
                     'item_group' => '111',
-                    'item_group_name' => 'xOffice Supplies',
+                    'item_group_name' => '111',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
                 [
                     'item_group' => '112',
-                    'item_group_name' => 'xIT Supplies',
+                    'item_group_name' => '112',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
                 [
                     'item_group' => '147',
-                    'item_group_name' => 'OFFICE SUPPLIES',
+                    'item_group_name' => '147',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
                 [
                     'item_group' => '146',
-                    'item_group_name' => 'IT SUPPLIES',
+                    'item_group_name' => '146',
                     'db_code' => $company,
                     'user_id' => $username
                 ],
@@ -322,10 +319,10 @@ class AuthController extends Controller
      */
     protected function assignRolePermissionToUser($username)
     {
-        if ($username == '1') {
+        if ($username == 'manager') {
             $role = Role::where('name', 'Superuser')->first();
             $permissions = Permission::all();
-            $user = User::where('id', $username)->first();
+            $user = User::where('username', $username)->first();
             $user->assignRole($role);
             foreach ($permissions as $permission) {
                 $user->givePermissionTo($permission->name);

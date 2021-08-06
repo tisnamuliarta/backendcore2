@@ -678,7 +678,7 @@ class TransactionReservationController extends Controller
             ];
 
             $item_whs = '';
-            $user_whs = UserWhs::where("user_id", "=", $request->user()->username)->get();
+            $user_whs = UserWhs::where("user_id", "=", $request->user()->id)->get();
             foreach ($user_whs as $user_wh) {
                 $item_whs .= "'$user_wh->whs_code',";
             }

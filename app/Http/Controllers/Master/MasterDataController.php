@@ -14,6 +14,13 @@ class MasterDataController extends Controller
 {
     use ConnectHana;
 
+    protected $connect;
+
+    public function __construct()
+    {
+        $this->connect = $this->connectHana();
+    }
+
     /**
      * @param Request $request
      *
@@ -36,9 +43,9 @@ class MasterDataController extends Controller
         $item_whs = '';
         $item_itm = '';
 
-        $user_whs = UserWhs::where("user_id", "=", $request->user()->username)->get();
-        $user_item_code = UserItmGrp::where("user_id", "=", $request->user()->username)->get();
-        $user_company = UserCompany::where("user_id", "=", $request->user()->username)->first();
+        $user_whs = UserWhs::where("user_id", "=", $request->user()->id)->get();
+        $user_item_code = UserItmGrp::where("user_id", "=", $request->user()->id)->get();
+        $user_company = UserCompany::where("user_id", "=", $request->user()->id)->first();
 
         foreach ($user_whs as $user_wh) {
             $item_whs .= "'$user_wh->whs_code',";
@@ -55,7 +62,7 @@ class MasterDataController extends Controller
         }
 
         $db_name = (isset($form->CompanyName)) ? $form->CompanyName : $user_company->company->db_code;
-        $whs = ($form) ? $form->WhsCode : $item_whs;
+        $whs = (isset($form->WhsCode)) ? "'$form->WhsCode'" : $item_whs;
 
         $sql_count = '
 					SELECT COUNT(*) AS "CountData"
@@ -69,7 +76,7 @@ class MasterDataController extends Controller
                                 FROM ' . $db_name . '."@DGN_EI_OIGR" As X0
                                 LEFT JOIN ' . $db_name . '."@DGN_EI_IGR1" AS X1 ON X0."DocEntry" = X1."DocEntry"
                                 WHERE X0."Canceled" = \'N\' AND X0."Status" =\'O\'
-                                AND X1."U_WhsCode" IN ( \'' . $whs . '\')
+                                AND X1."U_WhsCode" IN ( ' . $whs . ')
                                 AND X1."U_ReqQty" > IFNULL(X1."U_Issued",0)
                          GROUP BY  X1."U_ItemCode"
 
@@ -90,7 +97,7 @@ class MasterDataController extends Controller
             $sql_count .= ' AND T0."U_ItemType" LIKE( \'%' . $search . '%\' )';
         }
 
-
+        //return response()->json($sql_count);
         $rs = odbc_exec($connect, $sql_count);
         $arr = odbc_fetch_array($rs);
         $result["total"] = (int)$arr['CountData'];
@@ -105,11 +112,11 @@ class MasterDataController extends Controller
             IFNULL(
                 (SELECT SUM( X."OnHand")
                     FROM ' . $db_name . '.OITW X
-                    WHERE X."ItemCode" = T0."ItemCode" AND X."WhsCode" IN ( \'' . $whs . '\')
+                    WHERE X."ItemCode" = T0."ItemCode" AND X."WhsCode" IN ( ' . $whs . ')
                     ), 0
                 ) AS "OnHand",
             IFNULL( (SELECT SUM( X."OnHand") FROM ' . $db_name . '.OITW X  WHERE X."ItemCode" = T0."ItemCode"
-                    AND X."WhsCode" IN ( \'' . $whs . '\')
+                    AND X."WhsCode" IN ( ' . $whs . ')
                     ),0) - IFNULL(GIR."PendingQty",0) AS "Available"
             FROM ' . $db_name . '."OITM" AS T0
             LEFT JOIN
@@ -119,7 +126,7 @@ class MasterDataController extends Controller
                 FROM ' . $db_name . '."@DGN_EI_OIGR" As X0
                 LEFT JOIN ' . $db_name . '."@DGN_EI_IGR1" AS X1 ON X0."DocEntry" = X1."DocEntry"
                 WHERE X0."Canceled" = \'N\' AND X0."Status" =\'O\'
-                AND X1."U_WhsCode" IN ( \'' . $whs . '\')
+                AND X1."U_WhsCode" IN ( ' . $whs . ')
                 AND X1."U_ReqQty" > IFNULL(X1."U_Issued",0)
                 GROUP BY  X1."U_ItemCode"
             ) AS GIR ON  T0."ItemCode" = GIR."U_ItemCode"
@@ -166,7 +173,7 @@ class MasterDataController extends Controller
             ];
         }
 
-        $item_groups = UserItmGrp::where('user_id', '=', $request->user()->username)->get();
+        $item_groups = UserItmGrp::where('user_id', '=', $request->user()->id)->get();
         $arr_item_groups = [];
         $user_db = env('LARAVEL_ODBC_USERNAME');
 
@@ -183,6 +190,37 @@ class MasterDataController extends Controller
         ]);
 
         return response()->json($result);
+    }
+
+    /**
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getItemGroupCode(Request $request)
+    {
+        $user_company = UserCompany::where("user_id", "=", $request->user()->id)->first();
+        $db_name = $user_company->company->db_code;
+        $sql = '
+        SELECT T0.*
+            FROM ' . $db_name . '."OITB" AS T0
+           ';
+
+        $rs = odbc_exec($this->connect, $sql);
+
+        if (!$rs) {
+            exit("Error in SQL");
+        }
+        $arr = [];
+        while (odbc_fetch_row($rs)) {
+            $arr[] = [
+                "item_group_code" => odbc_result($rs, "ItmsGrpCod"),
+                "item_group_name" => odbc_result($rs, "ItmsGrpNam"),
+            ];
+        }
+        return $this->success([
+            'rows' => $arr
+        ]);
     }
 
     /**
