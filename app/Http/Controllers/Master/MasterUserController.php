@@ -198,6 +198,7 @@ class MasterUserController extends Controller
             $data = [
                 'username' => $form['username']['Nik'],
                 'is_admin_subwh' => $form['is_admin_subwh'],
+                'email' => strtotime(date('Y-m-d H:i:s')) .'@imip.co.id',
                 'active' => $form['active'],
             ];
 
