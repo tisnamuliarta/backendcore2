@@ -41,11 +41,13 @@ trait MasterData
     {
         $apps = $request->form['apps'];
         foreach ($apps as $app) {
-            $id = array_key_exists('id', (array)$app) ? $app['id'] : $app;
-            UserApp::updateOrCreate([
-                'user_id' => $user->id,
-                'app_id' => $id
-            ]);
+            if ($app) {
+                $id = array_key_exists('id', (array)$app) ? $app['id'] : $app;
+                UserApp::updateOrCreate([
+                    'user_id' => $user->id,
+                    'app_id' => $id
+                ]);
+            }
         }
     }
 
@@ -57,11 +59,13 @@ trait MasterData
     {
         $data = $request->form['division'];
         foreach ($data as $app) {
-            $id = array_key_exists('name', (array)$app) ? $app['name'] : $app;
-            UserDivision::updateOrCreate([
-                'user_id' => $user->id,
-                'division_name' => $id
-            ]);
+            if ($app) {
+                $id = array_key_exists('name', (array)$app) ? $app['name'] : $app;
+                UserDivision::updateOrCreate([
+                    'user_id' => $user->id,
+                    'division_name' => $id
+                ]);
+            }
         }
     }
 
@@ -73,12 +77,14 @@ trait MasterData
     {
         $data = $request->form['whs'];
         foreach ($data as $app) {
-            $id = array_key_exists('name', (array)$app) ? $app['name'] : $app;
-            UserWhs::updateOrCreate([
-                'user_id' => $user->id,
-                'db_code' => env('DB_SAP'),
-                'whs_code' => $id
-            ]);
+            if ($app) {
+                $id = array_key_exists('name', (array)$app) ? $app['name'] : $app;
+                UserWhs::updateOrCreate([
+                    'user_id' => $user->id,
+                    'db_code' => env('DB_SAP'),
+                    'whs_code' => $id
+                ]);
+            }
         }
     }
 }
