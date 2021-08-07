@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Models\ViewEmployee;
 use App\Traits\ConnectHana;
 use App\Models\UserCompany;
 use App\Models\UserItmGrp;
@@ -178,8 +180,21 @@ class MasterDataController extends Controller
         $user_db = env('LARAVEL_ODBC_USERNAME');
 
         foreach ($item_groups as $item_group) {
+            $sql = 'SELECT T0."ItmsGrpNam"
+                FROM ' . $db_name . '."OITB" AS T0
+                WHERE T0."ItmsGrpCod" = '.$item_group->item_group.' LIMIT 1';
+            $rs = odbc_exec($connect, $sql);
+
+            if (!$rs) {
+                exit("Error in SQL");
+            }
+            $arr_itms = '';
+            while (odbc_fetch_row($rs)) {
+                $arr_itms = odbc_result($rs, "ItmsGrpNam");
+            }
+            $item_group_name =
             $arr_item_groups[] = [
-                "ItmsGrpNam" => $item_group->item_group_name,
+                "ItmsGrpNam" => $arr_itms,
                 "U_ItmsGrpCod" => $item_group->item_group,
             ];
         }
@@ -233,19 +248,36 @@ class MasterDataController extends Controller
         $whs_code = $request->WhsCode;
         $item_code = $request->ItemCode;
 
-        $last_request = DB::table("resv_details")
-            ->leftJoin("resv_headers", "resv_details.doc_num", "resv_headers.id")
-            ->leftJoin("users", "resv_headers.requester_id", "users.id")
-            ->select("resv_details.req_date", "resv_details.req_note", "users.name")
-            ->whereNotIn("resv_headers.approval_status", ["-", "N", "W"])
-            ->where("resv_details.req_date", "<", $req_date)
-            ->where("resv_details.whs_code", "=", $whs_code)
-            ->where("resv_details.item_code", "=", $item_code)
-            ->orderBy("resv_details.line_num", "DESC")
+        $last_request = DB::connection('laravelOdbc')
+            ->table("RESV_D")
+            ->leftJoin("RESV_H", "RESV_D.U_DocEntry", "RESV_H.U_DocEntry")
+            ->select("RESV_D.ReqDate", "RESV_D.ReqNotes", "RESV_H.Requester")
+            ->whereNotIn("RESV_H.ApprovalStatus", ["-", "N", "W"])
+            ->where("RESV_D.ReqDate", "<", $req_date)
+            ->where("RESV_D.WhsCode", "=", $whs_code)
+            ->where("RESV_D.ItemCode", "=", $item_code)
+            ->orderBy("RESV_D.LineNum", "DESC")
             ->first();
 
+        if ($last_request) {
+            $user = ViewEmployee::where('Nik', '=', $last_request['Requester'])
+                ->first();
+
+            $data = [
+                'ReqDate' => $last_request['ReqDate'],
+                'ReqNotes' => $last_request['ReqNotes'],
+                'U_UserName' => $user->Name,
+            ];
+        } else {
+            $data = [
+                'ReqDate' => '',
+                'ReqNotes' => '',
+                'U_UserName' => '',
+            ];
+        }
+
         return response()->json([
-            "rows" => $last_request
+            "rows" => $data
         ]);
     }
 
@@ -267,28 +299,45 @@ class MasterDataController extends Controller
         $whs_code = $request->whsCode;
         $item_code = $request->itemCode;
 
-        $last_request = DB::table("resv_details")
-            ->leftJoin("resv_headers", "resv_details.doc_num", "resv_headers.id")
-            ->leftJoin("users", "resv_headers.requester_id", "users.id")
+        $last_requests = DB::connection('laravelOdbc')
+            ->table("RESV_D")
+            ->leftJoin("RESV_H", "RESV_D.U_DocEntry", "RESV_H.U_DocEntry")
             ->select(
-                "resv_details.req_date",
-                "resv_details.req_qty",
-                "resv_details.req_note",
-                "users.name",
-                "resv_headers.doc_num",
-                "resv_details.line_num"
+                "RESV_D.ReqDate",
+                "RESV_D.ReqQty",
+                "RESV_D.ReqNotes",
+                "RESV_H.U_DocEntry",
+                "RESV_H.DocNum",
+                "RESV_D.LineNum",
+                "RESV_H.Requester"
             )
-            ->whereNotIn("resv_headers.approval_status", ["-", "N", "W"])
-            //->where("resv_details.ReqDate", "<", $req_date)
-            ->where("resv_details.whs_code", "=", $whs_code)
-            ->where("resv_details.item_code", "=", $item_code)
-            ->orderBy("resv_details.req_date", "DESC")
+            ->whereNotIn("RESV_H.ApprovalStatus", ["-", "N", "W"])
+            //->where("RESV_D.ReqDate", "<", $req_date)
+            ->where("RESV_D.WhsCode", "=", $whs_code)
+            ->where("RESV_D.ItemCode", "=", $item_code)
+            ->orderBy("RESV_D.ReqDate", "DESC")
             ->offset($offset)
             ->limit($row_data);
 
+        $data = [];
+        foreach ($last_requests->get() as $item) {
+            $user = ViewEmployee::where('Nik', '=', $item['Requester'])
+                ->first();
+
+            $data[] = [
+                'ReqDate' => $item['ReqDate'],
+                'ReqNotes' => $item['ReqNotes'],
+                'ReqQty' => $item['ReqQty'],
+                'U_DocEntry' => $item['U_DocEntry'],
+                'DocNum' => $item['DocNum'],
+                'LineNum' => $item['LineNum'],
+                'U_UserName' => ($user) ? $user->Name : '',
+            ];
+        }
+
         return response()->json([
-            "total" => $last_request->count(),
-            "rows" => $last_request->get(),
+            "total" => $last_requests->count(),
+            "rows" => $data,
         ]);
     }
 }

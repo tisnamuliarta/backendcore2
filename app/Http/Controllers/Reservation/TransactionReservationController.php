@@ -263,38 +263,36 @@ class TransactionReservationController extends Controller
     public function store(Request $request): \Illuminate\Http\JsonResponse
     {
         if ($this->validation($request)) {
-            return response()->json([
-                "errors" => true,
-                "validHeader" => true,
-                "message" => $this->validation($request)
-            ]);
+            return $this->error($this->validation($request), 422);
         }
 
         $details = collect($request->details);
         $form = $request->form;
 
         if ($form['RequestType'] == 'Urgent' && empty($form['UrgentReason'])) {
-            return response()->json([
-                "errors" => true,
-                "message" => "Request Type Urgent Required Reason For That!"
-            ]);
+            return $this->error("Request Type Urgent Required Reason For That!", 422);
         }
         $doc_num = null;
         // get header
-        $header = null;
-        if ($form['Token']) {
-            $header = ReservationHeader::where("Token", "=", $form['Token'])->first();
-        }
-        // set created at
-        $created = (!empty($header)) ? $header->created_at : Carbon::now();
-        $doc_entry = $this->processHeaderDoc($header, $created, $request);
-        if ($doc_entry) {
-            //ToDo
-            return $this->loopDetails($details, $doc_entry, $form, $request);
-        } else {
-            return response()->json([
-                "errors" => true,
-                "message" => "Failed process header!"
+        DB::beginTransaction();
+        try {
+            $header = null;
+            if ($form['Token']) {
+                $header = ReservationHeader::where("Token", "=", $form['Token'])->first();
+            }
+            // set created at
+            $created = (!empty($header)) ? $header->created_at : Carbon::now();
+            $doc_entry = $this->processHeaderDoc($header, $created, $request);
+            if ($doc_entry) {
+                //ToDo
+                return $this->loopDetails($details, $doc_entry, $form, $request);
+            } else {
+                return $this->error("Failed process header!", 422);
+            }
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            return $this->error($exception->getMessage(), '422', [
+                'trace' => $exception->getTrace()
             ]);
         }
     }
@@ -445,42 +443,31 @@ class TransactionReservationController extends Controller
      * @param $doc_entry
      * @param $form
      * @param $request
+     * @param bool $is_approval
+     *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function loopDetails($details, $doc_entry, $form, $request): \Illuminate\Http\JsonResponse
+    public function loopDetails($details, $doc_entry, $form, $request, bool $is_approval = false)
     {
         if ($details) {
             foreach ($details as $index => $items) {
                 $line = ($index + 1);
                 if (empty($items['ItemCode'])) {
-                    return response()->json([
-                        "errors" => true,
-                        "message" => "Line $line: Item Code cannot empty!",
-                    ]);
+                    return $this->error("Line $line: Item Code cannot empty!", 422);
                 }
 
                 if (empty($items['WhsCode'])) {
-                    return response()->json([
-                        "errors" => true,
-                        "message" => "Line $line: WhsCode cannot empty!",
-                    ]);
+                    return $this->error("Line $line: WhsCode cannot empty!", 422);
                 }
 
                 if (empty($items['ReqQty'])) {
-                    return response()->json([
-                        "errors" => true,
-                        "message" => "Line $line: ReqQty cannot empty!",
-                    ]);
+                    return $this->error("Line $line: ReqQty cannot empty!", 422);
                 }
 
                 if ($items["ItemCategory"] == 'RS') {
                     if ($items['NPB'] == 'Y') {
                         if (isset($items['OtherResvNo'])) {
-                            return response()->json([
-                                "errors" => true,
-                                "message" => "Line $line: Cannot insert OtherResvNo!",
-
-                            ]);
+                            return $this->error("Line $line: Cannot insert OtherResvNo!", 422);
                         }
 
 //                        if ($items["ReqQty"] > $items["AvailableQty"]) {
@@ -494,29 +481,18 @@ class TransactionReservationController extends Controller
                 } elseif ($items["ItemCategory"] != 'RS') {
                     if ($items['NPB'] == 'Y') {
                         if ($items["ReqQty"] > $items["AvailableQty"] && !isset($items['OtherResvNo'])) {
-                            return response()->json([
-                                "errors" => true,
-                                "message" => "Line $line: Request Qty Cannot Greater Than Available Qty!",
-
-                            ]);
+                            return $this->error("Line $line: Request Qty Cannot Greater Than Available Qty!", 422);
                         }
 
                         if ($items["OnHand"] < $items["ReqQty"] && !isset($items['OtherResvNo'])) {
-                            return response()->json([
-                                "errors" => true,
-                                "message" => "Line $line: On Hand Qty Cannot Greater Than Available Qty!",
-
-                            ]);
+                            return $this->error("Line $line: On Hand Qty Cannot Greater Than Available Qty!", 422);
                         }
                     }
 
                     if ($items['NPB'] == 'Y' && ($form['RequestType'] == 'Normal'
                             || $form['RequestType'] == 'For Restock SubWH')) {
                         if (empty($items['OtherResvNo'])) {
-                            return response()->json([
-                                "errors" => true,
-                                "message" => "Line $line: Other Reservation No is required!",
-                            ]);
+                            return $this->error("Line $line: Other Reservation No is required!", 422);
                         } else {
                             $check_docnum = ReservationHeader::where("DocNum", "=", $items['OtherResvNo'])->first();
                             if ($check_docnum) {
@@ -524,17 +500,11 @@ class TransactionReservationController extends Controller
                                     ->where("ItemCode", "=", $items['ItemCode'])
                                     ->first();
                                 if (!$check_details) {
-                                    return response()->json([
-                                        "errors" => true,
-                                        "message" => "Line $line: Other Reservation No with this
-                                        itemcode is not valid!",
-                                    ]);
+                                    return $this->error("Line $line: Other Reservation No with this
+                                        itemcode is not valid!", 422);
                                 }
                             } else {
-                                return response()->json([
-                                    "errors" => true,
-                                    "message" => "Line $line: Other Reservation No is not valid!",
-                                ]);
+                                return $this->error("Line $line: Other Reservation No is not valid!", 422);
                             }
                         }
                     }
@@ -552,11 +522,15 @@ class TransactionReservationController extends Controller
             } // Details
         }
 
-        return response()->json([
-            "errors" => false,
-            "U_DocEntry" => $doc_entry,
-            "message" => ($doc_entry != 'null') ? "Data updated!" : "Data inserted!"
-        ]);
+        if ($is_approval) {
+            DB::commit();
+            return $this->success([
+                "U_DocEntry" => $doc_entry
+            ], ($doc_entry != 'null') ? "Data updated!" : "Data inserted!");
+        } else {
+            $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
+            return $this->submitApproval($header, $details, $request);
+        }
     }
 
     /**
@@ -842,17 +816,26 @@ class TransactionReservationController extends Controller
                 ]);
             }
         }
-        // set created at
-        $created = (!empty($header)) ? $header->created_at : Carbon::now();
-        $doc_entry = $this->processHeaderDoc($header, $created, $request);
-        //return response()->json($doc_entry);
-        if ($doc_entry) {
-            //ToDo
-            return $this->loopDetails($details, $doc_entry, $form, $request);
-        } else {
-            return response()->json([
-                "errors" => true,
-                "message" => "Failed process header!"
+
+        DB::beginTransaction();
+        try {
+            // set created at
+            $created = (!empty($header)) ? $header->created_at : Carbon::now();
+            $doc_entry = $this->processHeaderDoc($header, $created, $request);
+            //return response()->json($doc_entry);
+            if ($doc_entry) {
+                //ToDo
+                return $this->loopDetails($details, $doc_entry, $form, $request);
+            } else {
+                return response()->json([
+                    "errors" => true,
+                    "message" => "Failed process header!"
+                ]);
+            }
+        } catch (\Exception $exception) {
+            DB::rollBack();
+            return $this->error($exception->getMessage(), '422', [
+                'trace' => $exception->getTrace()
             ]);
         }
     }
@@ -927,95 +910,85 @@ class TransactionReservationController extends Controller
     }
 
     /**
-     * @param Request $request
+     * @param $header
+     * @param $details
+     * @param $request
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function submitApproval(Request $request)
+    public function submitApproval($header, $details, $request)
     {
-        try {
-            $form = $request->form;
-            $details = $request->details;
-            $cherry_token = $request->user()->cherry_token;
-            $list_code = Http::post(env('CHERRY_REQ'), [
-                'CommandName' => 'GetList',
-                'ModelCode' => 'ExternalDocuments',
-                'UserName' => $request->user()->username,
-                'Token' => $cherry_token,
-                'ParameterData' => []
-            ]);
+        $form = $header;
+        $cherry_token = $request->user()->cherry_token;
+        $list_code = Http::post(env('CHERRY_REQ'), [
+            'CommandName' => 'GetList',
+            'ModelCode' => 'ExternalDocuments',
+            'UserName' => $request->user()->username,
+            'Token' => $cherry_token,
+            'ParameterData' => []
+        ]);
 
-            $reservation_code = '';
-            foreach ($list_code->collect()['Data'] as $datum) {
-                if ($datum['Name'] == 'E-RESERVATION URGENT' && $form['RequestType'] == 'Urgent') {
-                    $reservation_code = $datum['Code'];
-                } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
-                    $reservation_code = $datum['Code'];
-                }
+        $reservation_code = '';
+        foreach ($list_code->collect()['Data'] as $datum) {
+            if ($datum['Name'] == 'E-RESERVATION URGENT' && $form->RequestType == 'Urgent') {
+                $reservation_code = $datum['Code'];
+            } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
+                $reservation_code = $datum['Code'];
             }
-
-            //return response()->json($reservation_code);
-
-            $username = $request->user()->username;
-            $company_code = $request->user()->company_code;
-
-            $response = Http::get(env('CHERRY_CHECK_EMPLOYEE'), [
-                'username' => $username,
-                'token' => $cherry_token,
-                'companyCode' => $company_code,
-                'q' => $form['RequesterName']
-            ]);
-
-            $employee_code = '';
-            foreach ($response->collect() as $item) {
-                if ($item['Nik'] == $form['Requester']) {
-                    $employee_code = $item['EmployeeCode'];
-                }
-            }
-
-            $document_content = view('email.approval_resv', compact('details'))->render();
-
-            //return response()->json($document_content);
-            //return response()->json($reservation_code);
-            $response = Http::post(env('CHERRY_REQ'), [
-                'CommandName' => 'Submit',
-                'ModelCode' => 'GADocuments',
-                'UserName' => $username,
-                'Token' => $cherry_token,
-                'ParameterData' => [],
-                'ModelData' => [
-                    'TypeCode' => $reservation_code,
-                    'CompanyCode' => $company_code,
-                    'Date' => date('m/d/Y'),
-                    'EmployeeCode' => $employee_code,
-                    'DocumentReferenceID' => $form['DocNum'],
-                    'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore/api/callback',
-                    'DocumentContent' => $document_content,
-                    'Notes' => $form['Memo']
-                ]
-            ]);
-            if ($response['MessageType'] == 'error') {
-                return $this->error($response->collect()['Message'], '422', [
-                    'error' => true,
-                ]);
-            }
-
-            ReservationHeader::where('U_DocEntry', '=', $form['U_DocEntry'])
-                ->update([
-                    'ApprovalStatus' => 'W'
-                ]);
-
-            return response()->json([
-                "errors" => false,
-                "U_DocEntry" => $form['U_DocEntry'],
-                "message" => ($form['U_DocEntry'] != 'null') ? "Data updated!" : "Data inserted!",
-            ]);
-        } catch (\Exception $exception) {
-            return $this->error($exception->getMessage(), '422', [
-                'error' => true,
-                'trace' => $exception->getTrace()
-            ]);
         }
+
+        $username = $request->user()->username;
+        $company_code = $request->user()->company_code;
+
+        $response = Http::get(env('CHERRY_CHECK_EMPLOYEE'), [
+            'username' => $username,
+            'token' => $cherry_token,
+            'companyCode' => $company_code,
+            'q' => $form->RequesterName
+        ]);
+
+        $employee_code = '';
+        foreach ($response->collect() as $item) {
+            if ($item['Nik'] == $form->Requester) {
+                $employee_code = $item['EmployeeCode'];
+            }
+        }
+
+        $document_content = view('email.approval_resv', compact('details'))->render();
+
+        //return response()->json($document_content);
+        //return response()->json($reservation_code);
+        $response = Http::post(env('CHERRY_REQ'), [
+            'CommandName' => 'Submit',
+            'ModelCode' => 'GADocuments',
+            'UserName' => $username,
+            'Token' => $cherry_token,
+            'ParameterData' => [],
+            'ModelData' => [
+                'TypeCode' => $reservation_code,
+                'CompanyCode' => $company_code,
+                'Date' => date('m/d/Y'),
+                'EmployeeCode' => $employee_code,
+                'DocumentReferenceID' => $form->DocNum,
+                'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore/api/callback',
+                'DocumentContent' => $document_content,
+                'Notes' => $form->Memo
+            ]
+        ]);
+        if ($response['MessageType'] == 'error') {
+            return $this->error($response->collect()['Message'], '422');
+        }
+
+        ReservationHeader::where('U_DocEntry', '=', $form->U_DocEntry)
+            ->update([
+                'ApprovalStatus' => 'W'
+            ]);
+
+        DB::commit();
+
+        return $this->success([
+            "U_DocEntry" => $form->U_DocEntry
+        ], ($form->U_DocEntry != 'null' ? "Data updated!" : "Data inserted!"));
     }
 
     /**
@@ -1098,15 +1071,15 @@ class TransactionReservationController extends Controller
                 ->get();
 
             $data_letter = [];
-            foreach ($details as $key => $value) {
+            foreach ($details as $index => $item) {
                 $data_letter [] = [
-                    "NO" => ($key + 1),
-                    "ITEMCODE" => $value->ItemCode,
-                    "ITEMNAME" => $value->ItemName,
-                    "UOM" => $value->UoMCode,
-                    "QTY" => $value->ReqQty,
-                    "DATE" => $value->ReqDate,
-                    "NOTES" => $value->ReqNotes,
+                    "NO" => ($index + 1),
+                    "ITEMCODE" => $item->ItemCode,
+                    "ITEMNAME" => $item->ItemName,
+                    "UOM" => $item->UoMCode,
+                    "QTY" => $item->ReqQty,
+                    "DATE" => $item->ReqDate,
+                    "NOTES" => $item->ReqNotes,
                 ];
             }
 
