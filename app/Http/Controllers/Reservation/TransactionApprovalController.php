@@ -86,7 +86,7 @@ class TransactionApprovalController extends Controller
                     'RejectUrl' => $datum['RejectUrl'],
                     'RejectToken' => $datum['RejectToken'],
                     'Code' => $datum['Code'],
-                    'DocDate' => $datum['Date'],
+                    'DocDate' => $datum['InsertStamp'],
                     'Details' => $documents->collect()['Data'][0]['DocumentContent'],
                     'DocumentReferenceID' => $documents->collect()['Data'][0]['DocumentReferenceID'],
                     'DocNum' => $documents->collect()['Data'][0]['DocumentReferenceID'],
@@ -211,7 +211,8 @@ class TransactionApprovalController extends Controller
                 'Keys' => $datum['Code'],
                 'ApproverEmployeeName' => $datum['ApproverEmployeeName'],
                 'StatusId' => $datum['StatusId'],
-                'ResponseDate' => ($datum['ResponseDate']) ?
+                'ResponseDate' => $datum['ResponseDate'],
+                'ResponseDates' => ($datum['ResponseDate']) ?
                     date('Y-m-d H:i:s', (int)substr($datum['ResponseDate'], 6, 10)) : '',
                 'Notes' => $datum['Notes'],
                 'ApprovalSchemaName' => $datum['ApprovalSchemaName'],
