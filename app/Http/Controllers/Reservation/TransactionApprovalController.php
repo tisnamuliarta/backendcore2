@@ -34,6 +34,8 @@ class TransactionApprovalController extends Controller
                 'ModelCode' => 'ApprovalRequests',
                 'UserName' => $request->user()->username,
                 'Token' => $cherry_token,
+                'OrderBy' => 'InsertStamp',
+                'OrderDirection ' => 'desc',
                 'ParameterData' => [
                     [
                         'ParamKey' => 'ApproverCode',
