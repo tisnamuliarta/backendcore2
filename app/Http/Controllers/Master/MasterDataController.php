@@ -249,7 +249,7 @@ class MasterDataController extends Controller
             $data = [
                 'ReqDate' => $last_request['ReqDate'],
                 'ReqNotes' => $last_request['ReqNotes'],
-                'U_UserName' => $user->Name,
+                'U_UserName' => ($user) ? $user->Name : '',
             ];
         } else {
             $data = [
