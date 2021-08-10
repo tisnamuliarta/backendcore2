@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reservation;
 
 use App\Http\Controllers\Controller;
+use App\Traits\ConnectHana;
 use Illuminate\Http\Request;
 use App\Models\Resv\ReqItem;
 use Carbon\Carbon;
@@ -10,6 +11,8 @@ use Illuminate\Support\Facades\Validator;
 
 class ReqItemController extends Controller
 {
+    use ConnectHana;
+
     /**
      * Display a listing of the resource.
      *
@@ -29,32 +32,58 @@ class ReqItemController extends Controller
         $offset = ($pages - 1) * $row_data;
 
         $result = array();
-        $query = ReqItem::selectRaw("*, 'Action' as Action")
-            ->when($search_status, function ($query) use ($search_status) {
-                $data_query = $query;
-                switch ($search_status) {
-                    case 'Pending':
-                        $data_query->whereRaw('"U_OITM"."U_Status" = \'Pending\' ');
-                        break;
-                    case 'Approved':
-                        $data_query->whereRaw('"U_OITM"."U_Status" = \'Approved\' ');
-                        break;
-                    case 'All':
-                        $data_query->whereRaw('"U_OITM"."U_Status" LIKE \'%%\' ');
-                        break;
-                }
-                return $data_query;
-            });
+        $db_name = env('DB_SAP');
+        $connect = $this->connectHana();
+        $own_db_name = env('LARAVEL_ODBC_USERNAME');
 
-        $result["total"] = $query->count();
+        $sql = '
+                        SELECT DISTINCT T0.*,
+                            T2."ItemCode", T2."ItemName"
+                        FROM ' . $own_db_name . '."U_OITM" As T0
+                        LEFT JOIN ' . $db_name . '."OITM" AS T2 ON T2."U_ItemReqNo" = T0."U_DocEntry"
+                    ';
+        // dd($sql);
+        $rs = odbc_exec($connect, $sql);
 
-        $all_data = $query->offset($offset)
-            ->orderBy($sorts, $order)
-            ->limit($row_data)
-            ->get();
+        if (!$rs) {
+            exit("Error in SQL");
+        }
+
+        $arr = [];
+        while (odbc_fetch_row($rs)) {
+            $arr[] = [
+                "U_Description" => odbc_result($rs, "U_Description"),
+                "U_UoM" => odbc_result($rs, "U_UoM"),
+                "U_Status" => odbc_result($rs, "U_Status"),
+                "U_Remarks" => odbc_result($rs, "U_Remarks"),
+                "U_Supporting" => odbc_result($rs, "U_Supporting"),
+                "U_CreatedBy" => odbc_result($rs, "U_CreatedBy"),
+                "U_DocEntry" => odbc_result($rs, "U_DocEntry"),
+                "U_Comments" => odbc_result($rs, "U_Comments"),
+                "U_CreatedAt" => odbc_result($rs, "U_CreatedAt"),
+                "ItemCode" => odbc_result($rs, "ItemCode"),
+                "ItemName" => odbc_result($rs, "ItemName"),
+            ];
+        }
+
+        $sql_count = $sql;
+        $rs2 = odbc_exec($connect, $sql_count);
+
+        if (!$rs2) {
+            exit("Error in SQL");
+        }
+
+        $items = 0;
+        while ($row = odbc_fetch_array($rs2)) {
+            $items++;
+        }
+
+        $result["total"] = $items;
+
+
 
         $result = array_merge($result, [
-            "rows" => $all_data,
+            "rows" => $arr,
             'documentStatus' => [
                 'All', 'Pending', 'Approved'
             ],
