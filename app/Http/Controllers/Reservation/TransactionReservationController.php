@@ -360,6 +360,7 @@ class TransactionReservationController extends Controller
             'RequiredDate' => $request->form['RequiredDate'],
             'DocDate' => $request->form['DocDate'],
             'RequestType' => $request->form['RequestType'],
+            'ItemType' => $request->form['ItemType'],
             'Memo' => $request->form['Memo'],
             'U_NIK' => $request->form['U_NIK'],
             'WhsCode' => $request->form['WhsCode'],

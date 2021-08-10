@@ -38,9 +38,16 @@ class MasterDataController extends Controller
         $row_data = isset($options->itemsPerPage) ? (int)$options->itemsPerPage : 10;
         $form = json_decode($request->form);
         $search = isset($request->search) ? (string)$request->search : "";
+        $item_type = isset($form->ItemType) ? (string)$form->ItemType : "";
         $select_type = isset($request->searchType) ? (string)$request->searchType : null;
         $offset = ($pages - 1) * $row_data;
         $result = array();
+
+        if ($item_type == 'Ready Stock') {
+            $item_type = "('RS')";
+        } else {
+            $item_type = "('NRS')";
+        }
 
         $item_whs = '';
         $item_itm = '';
@@ -66,50 +73,12 @@ class MasterDataController extends Controller
         $db_name = (isset($form->CompanyName)) ? $form->CompanyName : $user_company->company->db_code;
         $whs = (isset($form->WhsCode)) ? "'$form->WhsCode'" : $item_whs;
 
-        $sql_count = '
-					SELECT COUNT(*) AS "CountData"
-					FROM ' . $db_name . '."OITM" AS T0
-                    LEFT JOIN
-                    (
-                         SELECT X1."U_ItemCode",
-
-                                 SUM (X1."U_ReqQty"- IFNULL(X1."U_Issued",0) ) AS "PendingQty"
-
-                                FROM ' . $db_name . '."@DGN_EI_OIGR" As X0
-                                LEFT JOIN ' . $db_name . '."@DGN_EI_IGR1" AS X1 ON X0."DocEntry" = X1."DocEntry"
-                                WHERE X0."Canceled" = \'N\' AND X0."Status" =\'O\'
-                                AND X1."U_WhsCode" IN ( ' . $whs . ')
-                                AND X1."U_ReqQty" > IFNULL(X1."U_Issued",0)
-                         GROUP BY  X1."U_ItemCode"
-
-
-                    ) AS GIR ON  T0."ItemCode" = GIR."U_ItemCode"
-                    WHERE
-                     T0."ItmsGrpCod" IN ( ' . $item_itm . ')
-				';
-
-
-        if ($select_type == 'Item Code') {
-            $sql_count .= ' AND T0."ItemCode" LIKE( \'%' . $search . '%\' ) ';
-        } elseif ($select_type == 'Item Name') {
-            $sql_count .= ' AND T0."ItemName" LIKE( \'%' . $search . '%\' )';
-        } elseif ($select_type == 'Whs') {
-            $sql_count .= ' AND  T0."DfltWh" LIKE( \'%' . $search . '%\' )';
-        } elseif ($select_type == 'Category') {
-            $sql_count .= ' AND T0."U_ItemType" LIKE( \'%' . $search . '%\' )';
-        }
-
-        //return response()->json($sql_count);
-        $rs = odbc_exec($connect, $sql_count);
-        $arr = odbc_fetch_array($rs);
-        $result["total"] = (int)$arr['CountData'];
-
         $sql = '
         SELECT T0."ItemCode",
             T0."ItemName",
             T0."InvntryUom",
             T0."InvntItem",
-            T0."U_ItemType",
+            IFNULL(T0."U_ItemType", \'RS\') AS "U_ItemType",
             T0."DfltWH",
             IFNULL(
                 (SELECT SUM( X."OnHand")
@@ -133,7 +102,7 @@ class MasterDataController extends Controller
                 GROUP BY  X1."U_ItemCode"
             ) AS GIR ON  T0."ItemCode" = GIR."U_ItemCode"
             WHERE
-            T0."ItmsGrpCod" IN ( ' . $item_itm . ')
+            T0."ItmsGrpCod" IN ( ' . $item_itm . ') AND IFNULL(T0."U_ItemType", \'RS\') IN ' . $item_type . '
 
         ';
 
@@ -146,13 +115,27 @@ class MasterDataController extends Controller
         } elseif ($select_type == 'Category') {
             $sql .= ' AND T0."U_ItemType" LIKE( \'%' . $search . '%\' )';
         }
+        //return response()->json($sql);
+        $sql_count = $sql;
+        $rs2 = odbc_exec($connect, $sql_count);
+
+        if (!$rs2) {
+            exit("Error in SQL");
+        }
+
+        $items = 0;
+        while ($row = odbc_fetch_array($rs2)) {
+            $items++;
+        }
+
+        $result["total"] = $items;
 
         if ($row_data != '-1') {
             $sql .= ' LIMIT ' . $row_data . '
                     OFFSET ' . $offset . '
                     ';
         }
-        // dd($sql);
+
         $rs = odbc_exec($connect, $sql);
 
         if (!$rs) {
@@ -171,7 +154,7 @@ class MasterDataController extends Controller
                 "InvntryUom" => odbc_result($rs, "InvntryUom"),
                 "InvntItem" => odbc_result($rs, "InvntItem"),
                 // "DocEntry" => odbc_result($rs, "DocEntry"),
-                "U_ItemType" => (odbc_result($rs, "U_ItemType")) ? odbc_result($rs, "U_ItemType") : 'RS',
+                "U_ItemType" => (odbc_result($rs, "U_ItemType")) ? odbc_result($rs, "U_ItemType") : 'RS'
             ];
         }
 
@@ -182,7 +165,7 @@ class MasterDataController extends Controller
         foreach ($item_groups as $item_group) {
             $sql = 'SELECT T0."ItmsGrpNam"
                 FROM ' . $db_name . '."OITB" AS T0
-                WHERE T0."ItmsGrpCod" = '.$item_group->item_group.' LIMIT 1';
+                WHERE T0."ItmsGrpCod" = ' . $item_group->item_group . ' LIMIT 1';
             $rs = odbc_exec($connect, $sql);
 
             if (!$rs) {

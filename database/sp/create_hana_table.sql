@@ -32,8 +32,10 @@ CREATE COLUMN TABLE IMIP_ERESV.RESV_H (
     "CreatedName" VARCHAR (200) null,
     "RequesterName" VARCHAR (200) null,
     "UrgentReason" VARCHAR (200) null,
+    "ItemType" VARCHAR (20) null,
     PRIMARY KEY ("U_DocEntry")
     );
+
 
 
 CREATE COLUMN TABLE IMIP_ERESV.RESV_D (
