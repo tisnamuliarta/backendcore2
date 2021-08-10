@@ -522,15 +522,15 @@ class TransactionReservationController extends Controller
                 );
             } // Details
         }
-
+        $is_approval = $request->approval;
+        DB::commit();
         if ($is_approval) {
-            DB::commit();
+            $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
+            return $this->submitApproval($header, $details, $request);
+        } else {
             return $this->success([
                 "U_DocEntry" => $doc_entry
             ], ($doc_entry != 'null') ? "Data updated!" : "Data inserted!");
-        } else {
-            $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
-            return $this->submitApproval($header, $details, $request);
         }
     }
 
