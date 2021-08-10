@@ -931,9 +931,9 @@ class TransactionReservationController extends Controller
 
         $reservation_code = '';
         foreach ($list_code->collect()['Data'] as $datum) {
-            if ($datum['Name'] == 'E-RESERVATION URGENT' && $form->RequestType == 'Urgent') {
+            if ($datum['Name'] == 'E-RESERVATION NPB' && $form->RequestType == 'Ready Stock') {
                 $reservation_code = $datum['Code'];
-            } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
+            } elseif ($datum['Name'] == 'E-RESERVATION SPB') {
                 $reservation_code = $datum['Code'];
             }
         }
