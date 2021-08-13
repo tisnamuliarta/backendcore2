@@ -96,7 +96,7 @@ class AuthController extends Controller
 
             $user = User::where('username', $username)->first();
 
-            if (!$token = auth()->attempt($attr)) {
+            if (!Auth::attempt($attr)) {
                 return $this->error('Credentials not match', 401);
             }
 
@@ -111,7 +111,7 @@ class AuthController extends Controller
 //            }
 
             return response()->json([
-                'token' => $token,
+                'token' => $request->user()->createToken('api-token')->plainTextToken,
                 'user' => auth()->user()
             ]);
         } catch (\Exception $exception) {
@@ -268,9 +268,11 @@ class AuthController extends Controller
     /**
      * @return \Illuminate\Http\JsonResponse
      */
-    public function logout()
+    public function logout(Request $request)
     {
-        auth()->logout();
+        //auth()->logout();
+
+        $request->user()->tokens()->delete();
 
         return $this->success([
             'message' => 'Tokens Revoked'
@@ -278,11 +280,27 @@ class AuthController extends Controller
     }
 
     /**
+     * JWT refresh token
+     *
      * @return mixed
      */
     public function refresh()
     {
         return $this->respondWithToken(auth()->refresh());
+    }
+
+    /**
+     * Laravel Sanctum refresh token
+     *
+     * @param Request $request
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function refreshToken(Request $request)
+    {
+        $user = $request->user();
+        $user->tokens()->delete();
+        return response()->json(['token' => $user->createToken($user->name)->plainTextToken], 200);
     }
 
     /**
@@ -309,7 +327,7 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        return $this->success([
+        return response()->json([
             'user' => $request->user()
         ]);
     }

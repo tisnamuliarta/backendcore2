@@ -28,8 +28,7 @@ class TransactionApprovalController extends Controller
             'Accept' => 'application/json'
         ];
 
-        $documents = Http::withHeaders($headers)
-            ->post(env('CHERRY_REQ'), [
+        $documents = Http::post(env('CHERRY_REQ'), [
                 'CommandName' => 'GetList',
                 'ModelCode' => 'ApprovalRequests',
                 'UserName' => $request->user()->username,
@@ -55,9 +54,12 @@ class TransactionApprovalController extends Controller
 
         //return response()->json($collect);
 
+        if (!isset($collect['Data'])) {
+            return $this->success([]);
+        }
+
         foreach ($collect['Data'] as $datum) {
-            $documents = Http::withHeaders($headers)
-                ->post(env('CHERRY_REQ'), [
+            $documents = Http::post(env('CHERRY_REQ'), [
                     'CommandName' => 'GetList',
                     'ModelCode' => 'GADocuments',
                     'UserName' => $request->user()->username,
@@ -81,7 +83,7 @@ class TransactionApprovalController extends Controller
                     ->first();
 
                 $array_result[] = [
-                    'Keys' => Str::random(10),
+                    'Keys' => Str::random(20),
                     'TypeName' => $datum['TypeName'],
                     'ApproveUrl' => $datum['ApproveUrl'],
                     'ApproveToken' => $datum['ApproveToken'],

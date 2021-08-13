@@ -38,7 +38,7 @@ class RemoveAttachment implements ShouldQueue
                 if (is_file($file)) {
                     unlink($file);
                 } //end if
-            }   
+            }
         }
     }
 }

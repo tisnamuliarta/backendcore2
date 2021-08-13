@@ -3,6 +3,9 @@
 /public/storage
 /storage/*.key
 /vendor
+/public/attachment/docs
+/public/attachment/NPB
+/public/report
 .env
 .env.backup
 .phpunit.result.cache

@@ -8,6 +8,16 @@ use Illuminate\Http\Request;
 class HomeController extends Controller
 {
     /**
+     * @return string
+     */
+    public function downloadManual()
+    {
+        return response()->json([
+            'url' => url('/attachment/E-RESV-MANUAL.zip')
+        ]);
+    }
+
+    /**
      * @param Request $request
      *
      * @return \Illuminate\Http\JsonResponse
@@ -15,7 +25,7 @@ class HomeController extends Controller
     public function homeData(Request $request): \Illuminate\Http\JsonResponse
     {
         $count_draft = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "-")->count();
-        $count_pending = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "P")->count();
+        $count_pending = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "W")->count();
         $count_reject = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "N")->count();
         $count_approve = $this->copyQuery($request)->where("RESV_H.ApprovalStatus", "=", "Y")->count();
 
@@ -26,7 +36,7 @@ class HomeController extends Controller
                     'value' => $count_draft,
                 ],
                 [
-                    "text" => "Pending",
+                    "text" => "Waiting",
                     'value' => $count_pending,
                 ],
                 [
@@ -49,8 +59,7 @@ class HomeController extends Controller
      */
     protected function copyQuery($request)
     {
-        return ReservationHeader::where("Department", "=", $request->user()->department)
-            ->where("RESV_H.CreatedBy", "=", $request->user()->username);
+        return ReservationHeader::where("RESV_H.CreatedBy", "=", $request->user()->username);
     }
 
     /**

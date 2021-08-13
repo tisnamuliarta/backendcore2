@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reservation;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attachment;
 use App\Traits\ConnectHana;
 use Illuminate\Http\Request;
 use App\Models\Resv\ReqItem;
@@ -63,6 +64,9 @@ class ReqItemController extends Controller
                 "U_CreatedAt" => odbc_result($rs, "U_CreatedAt"),
                 "ItemCode" => odbc_result($rs, "ItemCode"),
                 "ItemName" => odbc_result($rs, "ItemName"),
+                "count_attachment" => Attachment::where('source_id', '=', odbc_result($rs, "U_DocEntry"))
+                    ->where('type', '=', 'item')
+                    ->count()
             ];
         }
 

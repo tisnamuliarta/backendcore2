@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Reservation;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attachment;
 use App\Traits\Approval;
 use App\Traits\ConnectHana;
 use App\Models\Resv\ReservationDetails;
@@ -62,7 +63,7 @@ class TransactionReservationController extends Controller
         // dd($user_id);
 
         // $db_name = env('DB_SAP');
-        $schema = env("DB_SCHEMA");
+        $schema = (env("DB_SCHEMA") !== null) ? env("DB_SCHEMA") : 'IMIP_ERESV';
 
         $result = array();
         $query = ReservationHeader::select(
@@ -215,13 +216,12 @@ class TransactionReservationController extends Controller
                         ELSE (
                             SELECT CASE
                                 when G0."Status" = \'O\' THEN \'Open\'
+                                when G0."Status" = \'C\' THEN \'Cancel\'
                                 ELSE \'Closed\'
                                 END AS "GIR_status"
                             FROM ' . $db_name . '."@DGN_EI_OIGR" G0
                             WHERE G0."DocEntry" = RESV_H."SAP_GIRNo"
                         )
-                        --WHEN RESV_H."DocStatus" = \'O\' THEN \'Open\'
-                        --WHEN RESV_H."DocStatus" = \'C\' THEN \'Closed\'
                     END AS "DocumentStatus"
                 '),
                 DB::raw('
@@ -690,7 +690,7 @@ class TransactionReservationController extends Controller
                             IFNULL(T2."U_ItemType", \'RS\') AS "ItemCategory",
                             T4."ReqDate" as "LastReqDate",
                             T4."ReqNotes" as "LastReqNote",
-                            T4."U_UserName" as "LastReqBy",
+                            T4."RequesterName" as "LastReqBy",
                             T2."U_ItemType"
                         FROM ' . $own_db_name . '."RESV_D" As T0
                         LEFT JOIN ' . $db_name . '."OITM" AS T2 ON T2."ItemCode" = T0."ItemCode"
@@ -706,10 +706,9 @@ class TransactionReservationController extends Controller
                             GROUP BY  X1."U_ItemCode"
                         ) AS GIR ON  T0."ItemCode" = GIR."U_ItemCode"
                         LEFT JOIN (
-                                SELECT A."ReqDate", A."ReqNotes",B."U_DocEntry", C."U_UserName", A."ItemCode" , B."ApprovalStatus", A."LineEntry"
+                                SELECT A."ReqDate", A."ReqNotes",B."U_DocEntry", B."RequesterName", A."ItemCode" , B."ApprovalStatus", A."LineEntry"
                                 FROM ' . $own_db_name . '."RESV_D" AS A
                                 left join ' . $own_db_name . '."RESV_H" AS B ON A."U_DocEntry" = B."U_DocEntry"
-                                left join ' . $own_db_name . '."OUSR_H" AS C ON B."Requester" = C."U_UserID"
                                 WHERE B."ApprovalStatus" NOT IN (\'-\', \'N\', \'W\')
                                 --AND A."ReqDate" < \'' . $detail->ReqDate . '\'
                                 AND A."WhsCode" = \'' . $detail->WhsCode . '\'
@@ -763,20 +762,23 @@ class TransactionReservationController extends Controller
 
             // dd($arr);
 
+            $attachment = Attachment::where('type', 'reservation')
+                ->where('source_id', $id)
+                ->count();
 
-            $details = ReservationDetails::where("U_DocEntry", "=", $id)->get();
             return response()->json([
                 "header" => $header,
                 "rows" => $arr,
                 "division" => $arr_division,
                 "user_nik" => $arr_user_nik,
+                "count_attachment" => $attachment
             ]);
         } catch (\Exception $exception) {
             return response()->json([
                 "error" => true,
                 "message" => $exception->getMessage(),
                 //"trace" => $exception->getTrace(),
-            ]);
+            ], 422);
         }
     }
 
@@ -936,6 +938,12 @@ class TransactionReservationController extends Controller
             } elseif ($datum['Name'] == 'E-RESERVATION SPB') {
                 $reservation_code = $datum['Code'];
             }
+
+//            if ($datum['Name'] == 'E-RESERVATION URGENT' && $form->RequestType == 'Urgent') {
+//                $reservation_code = $datum['Code'];
+//            } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
+//                $reservation_code = $datum['Code'];
+//            }
         }
 
         $username = $request->user()->username;
@@ -1008,29 +1016,16 @@ class TransactionReservationController extends Controller
      */
     public function printDocument(Request $request): \Illuminate\Http\JsonResponse
     {
-        $form = json_decode($request->form);
-        $data_header = ReservationHeader::select("OUSR_COMP.U_DbCode")
-            ->leftJoin("OUSR_COMP", "RESV_H.Company", "OUSR_COMP.U_DocEntry")
-            ->where("RESV_H.U_DocEntry", "=", $form->U_DocEntry)->get();
-        foreach ($data_header as $key => $value) {
-            $schema = env("DB_SCHEMA");
-            $db_name = $value->U_DbCode;
+        try {
+            $form = json_decode($request->form);
+            $data_header = ReservationHeader::select("*")
+                ->where("RESV_H.U_DocEntry", "=", $form->U_DocEntry)
+                ->first();
+
+            $db_name = $data_header->Company;
+
             $header = ReservationHeader::select(
                 "RESV_H.*",
-                "OUSR_COMP.U_DbCode",
-                "OUSR_COMP.U_DbCode As CompanyName",
-                "OUSR_H.U_Division",
-                "OUSR_H.U_UserName",
-                DB::raw('(
-                    SELECT ' . $schema . '.OUSR_H."U_UserName"
-                    FROM ' . $schema . '.OUSR_H
-                    where ' . $schema . '.OUSR_H."U_UserID" = ' . $schema . '.RESV_H."CreatedBy"
-                    ) AS "CreatedName"'),
-                DB::raw('(
-                    SELECT "U_UserName"
-                    FROM ' . $schema . '."OUSR_H"
-                    where ' . $schema . '."OUSR_H"."U_UserID" = RESV_H."CreatedBy") AS "CreatedUserBy"'),
-
                 DB::raw('( SELECT STRING_AGG(X."PR_NO", \', \')
                     FROM (
 
@@ -1059,11 +1054,7 @@ class TransactionReservationController extends Controller
                             )  AS X
                       ) AS  "SAP_GINo"
                 '),
-                DB::raw('CONCAT(OUSR_H."U_UserName", CONCAT( \'/\', OUSR_H."U_NIK")) AS "UserName"'),
-                DB::raw('CONCAT(OUSR_H."U_Division", CONCAT( \'/\', OUSR_H."U_Department")) AS "Department"')
             )
-                ->leftJoin("OUSR_COMP", "RESV_H.Company", "OUSR_COMP.U_DocEntry")
-                ->leftJoin("OUSR_H", "RESV_H.Requester", "OUSR_H.U_UserID")
                 ->where("RESV_H.U_DocEntry", "=", $form->U_DocEntry)
                 ->first();
 
@@ -1084,13 +1075,15 @@ class TransactionReservationController extends Controller
                 ];
             }
 
+            //return response()->json($data_letter);
+
             $letter_template = new TemplateProcessor(
                 public_path(
                     'template/NPB.docx'
                 )
             );
 
-            $letter_template->setValue('REQUESTOR', $header->UserName);
+            $letter_template->setValue('REQUESTOR', $header->RequesterName);
             $letter_template->setValue('NOERESVE', $header->DocNum);
             $letter_template->setValue('NOGIR', $header->SAP_GIRNo);
             $letter_template->setValue('REQUESTDATE', $header->DocDate);
@@ -1102,9 +1095,8 @@ class TransactionReservationController extends Controller
             $letter_template->setValue('DATETIME', 'Print Date: ' . date('Y-m-d H:i:s'));
 
             $letter_template->cloneRowAndSetValues('NO', $data_letter);
-            $file_path_name = public_path(
-                '/Attachment/NPB/'
-            );
+
+            $file_path_name = public_path() . '/attachment/NPB/' . $request->user()->username;
 
             if (!file_exists($file_path_name)) {
                 if (!mkdir($file_path_name, 0777, true) && !is_dir($file_path_name)) {
@@ -1116,15 +1108,19 @@ class TransactionReservationController extends Controller
                     );
                 }
             }
-            $file_name = $file_path_name . $request->user()->U_UserID . strtotime(date('Y-m-d')) . '.docx';
 
+            $file_str = Str::random(10);
+            $file_name = $file_path_name . '/' . $file_str . '.docx';
+
+            //return response()->json($file_name);
             $letter_template->saveAs($file_name);
-            $pdf_file = $file_path_name . $request->user()->U_UserID . strtotime(date('Y-m-d')) . ".pdf";
+            //return response()->json($file_path_name);
+            $pdf_file = $file_path_name . '/' . $file_str . ".pdf";
             $word_file = new \COM('Word.Application') or die('Could not initialise Object.');
             $word_file->Visible = 0;
             $word_file->DisplayAlerts = 0;
             $word_file->Documents->Open(
-                $file_path_name . $request->user()->U_UserID . strtotime(date('Y-m-d')) . '.docx'
+                $file_name
             );
             $word_file->ActiveDocument->ExportAsFixedFormat(
                 $pdf_file,
@@ -1151,11 +1147,11 @@ class TransactionReservationController extends Controller
                 $pdf_file
             ];
             // Remove Attachment
-            RemoveAttachment::dispatch($all_files)->delay(now()->addMinutes(3));
+            RemoveAttachment::dispatch($all_files)->delay(now()->addMinutes(5));
 
-            return response()->json([
-                'url' => url('/Attachment/NPB/' . $request->user()->U_UserID . strtotime(date('Y-m-d')) . ".pdf")
-            ]);
+            return $this->success([], url('/attachment/NPB/' . $request->user()->username . '/' . $file_str . ".pdf"));
+        } catch (\Exception $exception) {
+            return $this->error($exception->getMessage(), 422);
         }
     }
 }

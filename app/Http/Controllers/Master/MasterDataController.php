@@ -11,6 +11,7 @@ use App\Models\UserItmGrp;
 use App\Models\UserWhs;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class MasterDataController extends Controller
 {
@@ -109,7 +110,8 @@ class MasterDataController extends Controller
         if ($select_type == 'Item Code') {
             $sql .= ' AND T0."ItemCode" LIKE( \'%' . $search . '%\' ) ';
         } elseif ($select_type == 'Item Name') {
-            $sql .= ' AND T0."ItemName" LIKE( \'%' . $search . '%\' )';
+            $search = Str::lower($search);
+            $sql .= ' AND LOWER(T0."ItemName") LIKE( \'%' . $search . '%\' )';
         } elseif ($select_type == 'Whs') {
             $sql .= ' AND  T0."DfltWh" LIKE( \'%' . $search . '%\' )';
         } elseif ($select_type == 'Category') {

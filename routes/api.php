@@ -10,14 +10,16 @@ use Illuminate\Support\Facades\Route;
 Route::get('apps', [\App\Http\Controllers\AppController::class, 'frontData']);
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::get('download-manual', [HomeController::class, 'downloadManual']);
 
 Route::post('callback', [\App\Http\Controllers\CherryApprovalController::class, 'callback']);
 
-Route::group(['middleware' => ['api', 'auth:api']], function () {
+Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::group(['prefix' => 'auth'], function () {
         Route::get('/me', [AuthController::class, 'user']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/refresh', [AuthController::class, 'refresh']);
+        Route::post('/refresh-token', [AuthController::class, 'refreshToken']);
     });
 
     Route::get('home-data', [HomeController::class, 'homeData']);
@@ -26,6 +28,10 @@ Route::group(['middleware' => ['api', 'auth:api']], function () {
     Route::get('item-master-data', [MasterDataController::class, 'getItemMasterData']);
     Route::get('latest-req-item', [MasterDataController::class, 'getLatestRequest']);
     Route::get('list-latest-req', [MasterDataController::class, 'getListRequest']);
+
+    Route::get('attachment', [\App\Http\Controllers\AttachmentController::class, 'index']);
+    Route::post('attachment', [\App\Http\Controllers\AttachmentController::class, 'store']);
+    Route::delete('attachment', [\App\Http\Controllers\AttachmentController::class, 'destroy']);
 
     Route::prefix('reservation')
         ->group(__DIR__ . '/transaction/reservation.php');
