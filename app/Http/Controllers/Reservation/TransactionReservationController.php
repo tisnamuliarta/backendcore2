@@ -216,7 +216,7 @@ class TransactionReservationController extends Controller
                         ELSE (
                             SELECT CASE
                                 when G0."Status" = \'O\' THEN \'Open\'
-                                when G0."Status" = \'C\' THEN \'Cancel\'
+                                when G0."Status" = \'C\' AND G0."Canceled" = \'Y\' THEN \'Cancel\'
                                 ELSE \'Closed\'
                                 END AS "GIR_status"
                             FROM ' . $db_name . '."@DGN_EI_OIGR" G0
