@@ -35,7 +35,7 @@ class ReqItemController extends Controller
         $result = array();
         $db_name = env('DB_SAP');
         $connect = $this->connectHana();
-        $own_db_name = env('LARAVEL_ODBC_USERNAME');
+        $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV';
 
         $sql = '
                         SELECT DISTINCT T0.*,
@@ -45,8 +45,8 @@ class ReqItemController extends Controller
                                 WHEN T2."ItemCode" IS NULL THEN \'Pending\'
                                 ELSE \'Approved\'
                             END AS "U_DocStatus"
-                        FROM ' . $db_name . '."OITM" As T2
-                        LEFT JOIN ' . $own_db_name . '."U_OITM" AS T0 ON T2."U_ItemReqNo" = T0."U_DocEntry"
+                        FROM ' . $own_db_name . '."U_OITM" As T0
+                        LEFT JOIN ' . $db_name . '."OITM" AS T2 ON T2."U_ItemReqNo" = T0."U_DocEntry"
                     ';
         // dd($sql);
         $rs = odbc_exec($connect, $sql);
