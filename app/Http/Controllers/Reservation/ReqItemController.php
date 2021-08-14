@@ -39,9 +39,14 @@ class ReqItemController extends Controller
 
         $sql = '
                         SELECT DISTINCT T0.*,
-                            T2."ItemCode", T2."ItemName"
-                        FROM ' . $own_db_name . '."U_OITM" As T0
-                        LEFT JOIN ' . $db_name . '."OITM" AS T2 ON T2."U_ItemReqNo" = T0."U_DocEntry"
+                            T2."ItemCode",
+                            T2."ItemName",
+                            CASE
+                                WHEN T2."ItemCode" IS NULL THEN \'Pending\'
+                                ELSE \'Approved\'
+                            END AS "U_DocStatus"
+                        FROM ' . $own_db_name . '."OITM" As T2
+                        LEFT JOIN ' . $db_name . '."U_OITM" AS T0 ON T2."U_ItemReqNo" = T0."U_DocEntry"
                     ';
         // dd($sql);
         $rs = odbc_exec($connect, $sql);
@@ -64,6 +69,7 @@ class ReqItemController extends Controller
                 "U_CreatedAt" => odbc_result($rs, "U_CreatedAt"),
                 "ItemCode" => odbc_result($rs, "ItemCode"),
                 "ItemName" => odbc_result($rs, "ItemName"),
+                "U_DocStatus" => odbc_result($rs, "U_DocStatus"),
                 "count_attachment" => Attachment::where('source_id', '=', odbc_result($rs, "U_DocEntry"))
                     ->where('type', '=', 'item')
                     ->count()

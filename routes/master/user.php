@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('relationship', [MasterUserDataController::class, 'userRelationship']);
 Route::get('whsrelationship', [MasterUserDataController::class, 'whsRelationship']);
 
-Route::group(['middleware' => ['permission:Users-edits']], function () {
+Route::group(['middleware' => ['direct_permission:Users-edits']], function () {
     Route::get('whs-to', [MasterUserDataController::class, 'getWhsTo']);
     Route::get('whs-relationship', [MasterUserDataController::class, 'whsRelationship']);
     Route::get('get-whs', [MasterUserDataController::class, 'getWarehouse']);

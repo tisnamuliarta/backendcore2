@@ -14,11 +14,14 @@ class MasterEmployeeController extends Controller
      */
     public function index(Request $request)
     {
+        $company = (isset($request->company)) ? $request->company : '';
+
         $employee = ViewEmployee::select('*');
         if ($request->alias === 'stkpd') {
             $employee = $employee->where('WorkLocation', 'LIKE', '%JAKARTA%');
         }
-        $employee = $employee->get();
+        $employee = $employee->where('Company', 'LIKE', '%'.$company.'%')
+            ->get();
 
         return response()->json([
             'rows' => $employee

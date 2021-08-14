@@ -20,10 +20,10 @@ class MasterPermissionController extends Controller
      */
     public function __construct()
     {
-        $this->middleware(['permission:Permission-index'])->only(['index', 'show']);
-        $this->middleware(['permission:Permission-store'])->only('store');
-        $this->middleware(['permission:Permission-edits'])->only('update');
-        $this->middleware(['permission:Permission-erase'])->only('destroy');
+        $this->middleware(['direct_permission:Permission-index'])->only(['index', 'show']);
+        $this->middleware(['direct_permission:Permission-store'])->only('store');
+        $this->middleware(['direct_permission:Permission-edits'])->only('update');
+        $this->middleware(['direct_permission:Permission-erase'])->only('destroy');
     }
 
     /**
@@ -92,21 +92,7 @@ class MasterPermissionController extends Controller
         $form = $request->form;
         DB::beginTransaction();
         try {
-            $parent = Permission::where('menu_name', $form['parent_name'])->first();
-            $data = [
-                'name' => $form['menu_name'],
-                'app_name' => $form['app_name'],
-                'menu_name' => $form['menu_name'],
-                'parent_id' => ($parent) ? $parent->id : 0,
-                'icon' => $form['icon'],
-                'route_name' => $form['route_name'],
-                'has_child' => $form['has_child'],
-                'has_route' => $form['has_route'],
-                'order_line' => $form['order_line'],
-                'is_crud' => $form['is_crud'],
-                'role' => $form['role'],
-                'guard_name' => 'api',
-            ];
+            $data = $this->data($form);
 
             if ($form['is_crud'] == 'Y') {
                 $this->generatePermission((object)$data, '-index', 'Y');
@@ -141,6 +127,30 @@ class MasterPermissionController extends Controller
                 "Trace" => $exception->getTrace()
             ]);
         }
+    }
+
+    /**
+     * @param $form
+     *
+     * @return array
+     */
+    protected function data($form)
+    {
+        $parent = Permission::where('menu_name', $form['parent_name'])->first();
+        return [
+            'name' => $form['menu_name'],
+            'app_name' => $form['app_name'],
+            'menu_name' => $form['menu_name'],
+            'parent_id' => ($parent) ? $parent->id : 0,
+            'icon' => $form['icon'],
+            'route_name' => $form['route_name'],
+            'has_child' => $form['has_child'],
+            'has_route' => $form['has_route'],
+            'order_line' => $form['order_line'],
+            'is_crud' => $form['is_crud'],
+            'role' => $form['role'],
+            'guard_name' => 'api',
+        ];
     }
 
     /**
@@ -211,15 +221,38 @@ class MasterPermissionController extends Controller
         }
 
         $form = $request->form;
+        DB::beginTransaction();
         try {
             $data = $this->data($form);
 
-            Permission::where("id", "=", $id)->update($data);
+            if ($form['is_crud'] == 'Y') {
+                $this->generatePermission((object)$data, '-index', 'Y');
+            } else {
+                if (isset($form['index'])) {
+                    $this->generatePermission((object)$data, '-index', 'Y');
+                }
+
+                if (isset($form['store'])) {
+                    $this->generatePermission((object)$data, '-store', 'Y');
+                }
+
+                if (isset($form['edits'])) {
+                    $this->generatePermission((object)$data, '-edits', 'Y');
+                }
+
+                if (isset($form['edits'])) {
+                    $this->generatePermission((object)$data, '-erase', 'Y');
+                }
+            }
+
+            DB::commit();
 
             return $this->success([
                 "errors" => false
-            ], 'Data updated!');
+            ], 'Data inserted!');
         } catch (\Exception $exception) {
+            DB::rollBack();
+
             return $this->error($exception->getMessage(), 422, [
                 "errors" => true,
                 "Trace" => $exception->getTrace()

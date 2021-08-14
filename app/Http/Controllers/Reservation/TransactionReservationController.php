@@ -33,16 +33,17 @@ class TransactionReservationController extends Controller
      */
     public function __construct()
     {
-        $this->middleware(['permission:Reservation Request-index'])->only(['index', 'show', 'maxDocResv']);
-        $this->middleware(['permission:Reservation Request-store'])->only('store');
-        $this->middleware(['permission:Reservation Request-edits'])->only('update');
-        $this->middleware(['permission:Reservation Request-erase'])->only('destroy');
+        $this->middleware(['direct_permission:Reservation Request-index'])->only(['index', 'show', 'maxDocResv']);
+        $this->middleware(['direct_permission:Reservation Request-store'])->only('store');
+        $this->middleware(['direct_permission:Reservation Request-edits'])->only('update');
+        $this->middleware(['direct_permission:Reservation Request-erase'])->only('destroy');
     }
 
     /**
      * Display a listing of the resource.
      *
      * @param Request $request
+     *
      * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request): \Illuminate\Http\JsonResponse
@@ -664,7 +665,7 @@ class TransactionReservationController extends Controller
 
             $connect = $this->connectHana();
 
-            $own_db_name = env('LARAVEL_ODBC_USERNAME');
+            $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV';
             $data_details = ReservationDetails::where("U_DocEntry", "=", $header['U_DocEntry'])->get();
             // dd($data_details);
             $user_company = UserCompany::leftJoin('companies', 'companies.id', 'user_companies.company_id')

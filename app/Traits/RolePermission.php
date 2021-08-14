@@ -11,8 +11,9 @@ trait RolePermission
     /**
      * @param $request
      * @param string $suffix
+     * @param string $insert_role
      */
-    protected function generatePermission($request, string $suffix = '-index', $insert_role = 'N')
+    protected function generatePermission($request, string $suffix = '-index', string $insert_role = 'N')
     {
         $data = [
             'name' => $request->name,
@@ -34,13 +35,24 @@ trait RolePermission
             foreach ($suffix as $value) {
                 $data['name'] = $request->name . '-' . $value;
 
-                $permission = Permission::create($data);
+                $check = Permission::where('name', '=', $request->name . '-' . $value)->first();
+                if ($check) {
+                    $permission = Permission::where('id', '=', $check->id)->update($data);
+                } else {
+                    $permission = Permission::create($data);
+                }
 
                 $this->assignPermissionToRole($permission, $insert_role, $request);
             }
         } else {
             $data['name'] = $request->name . $suffix;
-            $permission = Permission::create($data);
+            $check = Permission::where('name', '=', $request->name . $suffix)->first();
+
+            if ($check) {
+                $permission = Permission::where('id', '=', $check->id)->update($data);
+            } else {
+                $permission = Permission::create($data);
+            }
 
             $this->assignPermissionToRole($permission, $insert_role, $request);
         }
@@ -92,6 +104,7 @@ trait RolePermission
     {
         $permission = Permission::where('name', $detail['permission'] . '-' . $key)
             ->first();
+
         if ($permission) {
             if ($detail[$key] == 'Y') {
                 $role->givePermissionTo($detail['permission'] . '-' . $key);

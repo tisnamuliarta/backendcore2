@@ -13,6 +13,12 @@ class TransactionApprovalController extends Controller
 {
     use Approval;
 
+    public function __construct()
+    {
+        $this->middleware(['direct_permission:Reservation Approval-index'])->only('index');
+        $this->middleware(['direct_permission:Reservation Approval-store'])->only('store');
+    }
+
     /**
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse

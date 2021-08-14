@@ -160,8 +160,10 @@ class AppController extends Controller
         $form = $request->form;
         try {
             $data = [
-                'name' => $form['name'],
-                'description' => $form['description'],
+                'app_name' => $form['app_name'],
+                'app_description' => $form['app_description'],
+                'app_url' => $form['app_url'],
+                'active' => $form['active'],
             ];
 
             Application::where("id", "=", $id)->update($data);
