@@ -45,8 +45,8 @@ class ReqItemController extends Controller
                                 WHEN T2."ItemCode" IS NULL THEN \'Pending\'
                                 ELSE \'Approved\'
                             END AS "U_DocStatus"
-                        FROM ' . $own_db_name . '."OITM" As T2
-                        LEFT JOIN ' . $db_name . '."U_OITM" AS T0 ON T2."U_ItemReqNo" = T0."U_DocEntry"
+                        FROM ' . $db_name . '."OITM" As T2
+                        LEFT JOIN ' . $own_db_name . '."U_OITM" AS T0 ON T2."U_ItemReqNo" = T0."U_DocEntry"
                     ';
         // dd($sql);
         $rs = odbc_exec($connect, $sql);
