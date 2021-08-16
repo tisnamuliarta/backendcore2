@@ -67,6 +67,7 @@ class ReqItemController extends Controller
                 "U_DocEntry" => odbc_result($rs, "U_DocEntry"),
                 "U_Comments" => odbc_result($rs, "U_Comments"),
                 "U_CreatedAt" => odbc_result($rs, "U_CreatedAt"),
+                "U_ItemType" => odbc_result($rs, "U_ItemType"),
                 "ItemCode" => odbc_result($rs, "ItemCode"),
                 "ItemName" => odbc_result($rs, "ItemName"),
                 "U_DocStatus" => odbc_result($rs, "U_DocStatus"),
@@ -124,6 +125,7 @@ class ReqItemController extends Controller
         try {
             $data = new ReqItem();
             $data->U_Description = $form['U_Description'];
+            $data->U_ItemType = $form['U_ItemType'];
             $data->U_UoM = $form['U_UoM'];
             $data->U_Status = array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending';
             $data->U_Remarks = $form['U_Remarks'];
@@ -151,11 +153,13 @@ class ReqItemController extends Controller
         $messages = [
             'form.U_Description' => 'Name is required!',
             'form.U_UoM' => 'Description Status is required!',
+            'form.U_ItemType' => 'Item Type is required!',
         ];
 
         $validator = Validator::make($request->all(), [
             'form.U_Description' => 'required',
             'form.U_UoM' => 'required',
+            'form.U_ItemType' => 'required',
         ], $messages);
 
         $string_data = "";
@@ -205,6 +209,7 @@ class ReqItemController extends Controller
         $form = $request->form;
         try {
             $data = ReqItem::where("U_DocEntry", "=", $id)->first();
+            $data->U_ItemType = $form['U_ItemType'];
             $data->U_Description = $form['U_Description'];
             $data->U_UoM = $form['U_UoM'];
             $data->U_Status = array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending';

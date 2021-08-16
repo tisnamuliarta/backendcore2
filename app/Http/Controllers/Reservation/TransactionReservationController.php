@@ -624,7 +624,6 @@ class TransactionReservationController extends Controller
     public function show(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
         try {
-            $schema = env("DB_SCHEMA");
             $header = ReservationHeader::select(
                 "RESV_H.*",
                 "RESV_H.Company As CompanyName",
@@ -933,10 +932,11 @@ class TransactionReservationController extends Controller
         ]);
 
         $reservation_code = '';
+        //return response()->json($list_code->collect()['Data'] );
         foreach ($list_code->collect()['Data'] as $datum) {
             if ($datum['Name'] == 'E-RESERVATION NPB' && $form->RequestType == 'Ready Stock') {
                 $reservation_code = $datum['Code'];
-            } elseif ($datum['Name'] == 'E-RESERVATION SPB') {
+            } else {
                 $reservation_code = $datum['Code'];
             }
 

@@ -50,7 +50,6 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('permission-role', [MasterRolesController::class, 'storePermissionRole']);
 
         Route::apiResource('apps', \App\Http\Controllers\AppController::class);
-        Route::apiResource('company', \App\Http\Controllers\Master\MasterCompanyController::class);
         Route::apiResource('permissions', MasterPermissionController::class);
         Route::apiResource('roles', MasterRolesController::class);
     });

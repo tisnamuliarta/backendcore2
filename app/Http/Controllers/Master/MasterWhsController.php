@@ -16,7 +16,7 @@ class MasterWhsController extends Controller
     public function index(Request $request): \Illuminate\Http\JsonResponse
     {
         $connect = $this->connectHana();
-        $db_name = env('DB_SAP');
+        $db_name = (env('DB_SAP') !== null) ? env('DB_SAP') : 'IMIP_TEST_1217';
 
         $sql = '
 					select "WhsCode", "WhsName",
