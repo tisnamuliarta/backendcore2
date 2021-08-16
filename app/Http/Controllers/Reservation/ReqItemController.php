@@ -8,6 +8,7 @@ use App\Traits\ConnectHana;
 use Illuminate\Http\Request;
 use App\Models\Resv\ReqItem;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class ReqItemController extends Controller
@@ -208,15 +209,18 @@ class ReqItemController extends Controller
 
         $form = $request->form;
         try {
-            $data = ReqItem::where("U_DocEntry", "=", $form['U_DocEntry'])->first();
-            $data->U_ItemType = $form['U_ItemType'];
-            $data->U_Description = $form['U_Description'];
-            $data->U_UoM = $form['U_UoM'];
-            $data->U_Status = array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending';
-            $data->U_Remarks = $form['U_Remarks'];
-            $data->U_Supporting = $form['U_Supporting'];
-            $data->save();
-
+            DB::connection('laravelOdbc')
+                ->table('U_OITM')
+                ->where("U_DocEntry", "=", $form['U_DocEntry'])
+                ->update([
+                    'U_ItemType' => $form['U_ItemType'],
+                    'U_Description' => $form['U_Description'],
+                    'U_UoM' => $form['U_UoM'],
+                    'U_Status' => array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending',
+                    'U_Remarks' => $form['U_Remarks'],
+                    'U_Supporting' => $form['U_Supporting'],
+                ]);
+            
             return $this->success([
                 "errors" => false,
             ], "Data updated!");
