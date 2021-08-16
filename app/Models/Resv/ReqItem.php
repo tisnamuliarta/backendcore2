@@ -12,6 +12,7 @@ class ReqItem extends Model
      *
      * @var array
      */
+    protected $primaryKey = 'U_DocEntry';
     public $timestamps = false;
     protected $connection = 'laravelOdbc';
     protected $guarded = [];
