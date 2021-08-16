@@ -208,7 +208,7 @@ class ReqItemController extends Controller
 
         $form = $request->form;
         try {
-            $data = ReqItem::where("U_DocEntry", "=", $id)->first();
+            $data = ReqItem::where("U_DocEntry", "=", $form['U_DocEntry'])->first();
             $data->U_ItemType = $form['U_ItemType'];
             $data->U_Description = $form['U_Description'];
             $data->U_UoM = $form['U_UoM'];
