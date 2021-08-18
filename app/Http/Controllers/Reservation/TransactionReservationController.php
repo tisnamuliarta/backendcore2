@@ -283,10 +283,33 @@ class TransactionReservationController extends Controller
             }
             // set created at
             $created = (!empty($header)) ? $header->created_at : Carbon::now();
+            if ($this->validateDetails($details, $form)['error']) {
+                return $this->error($this->validateDetails($details, $form)['message'], '422');
+            }
+
             $doc_entry = $this->processHeaderDoc($header, $created, $request);
             if ($doc_entry) {
-                //ToDo
-                return $this->loopDetails($details, $doc_entry, $form, $request);
+                foreach ($details as $index => $items) {
+                    $line = ($index + 1);
+                    // Saved the data
+                    $this->saveData(
+                        $line,
+                        $items,
+                        $request,
+                        $form,
+                        $doc_entry
+                    );
+                } // Details
+                $is_approval = $request->approval;
+                DB::commit();
+                if ($is_approval) {
+                    $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
+                    return $this->submitApproval($header, $details, $request);
+                } else {
+                    return $this->success([
+                        "U_DocEntry" => $doc_entry
+                    ], ($doc_entry != 'null') ? "Data updated!" : "Data inserted!");
+                }
             } else {
                 return $this->error("Failed process header!", 422);
             }
@@ -295,6 +318,105 @@ class TransactionReservationController extends Controller
             return $this->error($exception->getMessage(), '422', [
                 'trace' => $exception->getTrace()
             ]);
+        }
+    }
+
+    /**
+     * @param $details
+     * @param $form
+     * @return array|false[]
+     */
+    protected function validateDetails($details, $form)
+    {
+        if ($details) {
+            foreach ($details as $index => $items) {
+                $line = ($index + 1);
+                if (empty($items['ItemCode'])) {
+                    return [
+                        'error' => true,
+                        'message' => "Line $line: Item Code cannot empty!"
+                    ];
+                }
+
+                if (empty($items['WhsCode'])) {
+                    return [
+                        'error' => true,
+                        'message' => "Line $line: WhsCode cannot empty!"
+                    ];
+                }
+
+                if (empty($items['ReqQty'])) {
+                    return [
+                        'error' => true,
+                        'message' => "Line $line: ReqQty cannot empty!"
+                    ];
+                }
+
+                if ($items["ItemCategory"] == 'RS') {
+                    if ($items['NPB'] == 'Y') {
+                        if (isset($items['OtherResvNo'])) {
+                            return [
+                                'error' => true,
+                                'message' => "Line $line: Cannot insert OtherResvNo!"
+                            ];
+                        }
+                    }
+                } elseif ($items["ItemCategory"] != 'RS') {
+                    if ($items['NPB'] == 'Y') {
+                        if ($items["ReqQty"] > $items["AvailableQty"] && !isset($items['OtherResvNo'])) {
+                            return [
+                                'error' => true,
+                                'message' => "Line $line: Request Qty Cannot Greater Than Available Qty!"
+                            ];
+                        }
+
+                        if ($items["OnHand"] < $items["ReqQty"] && !isset($items['OtherResvNo'])) {
+                            return [
+                                'error' => true,
+                                'message' => "Line $line: On Hand Qty Cannot Greater Than Available Qty!"
+                            ];
+                        }
+                    }
+
+                    if ($items['NPB'] == 'Y' && ($form['RequestType'] == 'Normal'
+                            || $form['RequestType'] == 'For Restock SubWH')) {
+                        if (empty($items['OtherResvNo'])) {
+                            return [
+                                'error' => true,
+                                'message' => "Line $line: Other Reservation No is required!"
+                            ];
+                        } else {
+                            $check_docnum = ReservationHeader::where("DocNum", "=", $items['OtherResvNo'])->first();
+                            if ($check_docnum) {
+                                $check_details = ReservationDetails::where("U_DocEntry", "=", $check_docnum->U_DocEntry)
+                                    ->where("ItemCode", "=", $items['ItemCode'])
+                                    ->first();
+                                if (!$check_details) {
+                                    return [
+                                        'error' => true,
+                                        'message' => "Line $line: Other Reservation No with this
+                                        itemcode is not valid!"
+                                    ];
+                                }
+                            } else {
+                                return [
+                                    'error' => true,
+                                    'message' => "Line $line: Other Reservation No is not valid!"
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+
+            return [
+                'error' => false,
+            ];
+        } else {
+            return [
+                'error' => true,
+                'message' => "Document must have details!"
+            ];
         }
     }
 
@@ -451,78 +573,17 @@ class TransactionReservationController extends Controller
      */
     public function loopDetails($details, $doc_entry, $form, $request, bool $is_approval = false)
     {
-        if ($details) {
-            foreach ($details as $index => $items) {
-                $line = ($index + 1);
-                if (empty($items['ItemCode'])) {
-                    return $this->error("Line $line: Item Code cannot empty!", 422);
-                }
-
-                if (empty($items['WhsCode'])) {
-                    return $this->error("Line $line: WhsCode cannot empty!", 422);
-                }
-
-                if (empty($items['ReqQty'])) {
-                    return $this->error("Line $line: ReqQty cannot empty!", 422);
-                }
-
-                if ($items["ItemCategory"] == 'RS') {
-                    if ($items['NPB'] == 'Y') {
-                        if (isset($items['OtherResvNo'])) {
-                            return $this->error("Line $line: Cannot insert OtherResvNo!", 422);
-                        }
-
-//                        if ($items["ReqQty"] > $items["AvailableQty"]) {
-//                            return response()->json([
-//                                "errors" => true,
-//                                "message" => "Line $line: Request Qty Cannot Greater Than Available Qty!",
-//
-//                            ]);
-//                        }
-                    }
-                } elseif ($items["ItemCategory"] != 'RS') {
-                    if ($items['NPB'] == 'Y') {
-                        if ($items["ReqQty"] > $items["AvailableQty"] && !isset($items['OtherResvNo'])) {
-                            return $this->error("Line $line: Request Qty Cannot Greater Than Available Qty!", 422);
-                        }
-
-                        if ($items["OnHand"] < $items["ReqQty"] && !isset($items['OtherResvNo'])) {
-                            return $this->error("Line $line: On Hand Qty Cannot Greater Than Available Qty!", 422);
-                        }
-                    }
-
-                    if ($items['NPB'] == 'Y' && ($form['RequestType'] == 'Normal'
-                            || $form['RequestType'] == 'For Restock SubWH')) {
-                        if (empty($items['OtherResvNo'])) {
-                            return $this->error("Line $line: Other Reservation No is required!", 422);
-                        } else {
-                            $check_docnum = ReservationHeader::where("DocNum", "=", $items['OtherResvNo'])->first();
-                            if ($check_docnum) {
-                                $check_details = ReservationDetails::where("U_DocEntry", "=", $check_docnum->U_DocEntry)
-                                    ->where("ItemCode", "=", $items['ItemCode'])
-                                    ->first();
-                                if (!$check_details) {
-                                    return $this->error("Line $line: Other Reservation No with this
-                                        itemcode is not valid!", 422);
-                                }
-                            } else {
-                                return $this->error("Line $line: Other Reservation No is not valid!", 422);
-                            }
-                        }
-                    }
-                }
-
-                // dd('ok');
-                // Saved the data
-                $this->saveData(
-                    $line,
-                    $items,
-                    $request,
-                    $form,
-                    $doc_entry
-                );
-            } // Details
-        }
+        foreach ($details as $index => $items) {
+            $line = ($index + 1);
+            // Saved the data
+            $this->saveData(
+                $line,
+                $items,
+                $request,
+                $form,
+                $doc_entry
+            );
+        } // Details
         $is_approval = $request->approval;
         DB::commit();
         if ($is_approval) {
@@ -822,18 +883,38 @@ class TransactionReservationController extends Controller
 
         DB::beginTransaction();
         try {
+            if ($this->validateDetails($details, $form)['error']) {
+                return $this->error($this->validateDetails($details, $form)['message'], '422');
+            }
+            
             // set created at
             $created = (!empty($header)) ? $header->created_at : Carbon::now();
             $doc_entry = $this->processHeaderDoc($header, $created, $request);
             //return response()->json($doc_entry);
             if ($doc_entry) {
-                //ToDo
-                return $this->loopDetails($details, $doc_entry, $form, $request);
+                foreach ($details as $index => $items) {
+                    $line = ($index + 1);
+                    // Saved the data
+                    $this->saveData(
+                        $line,
+                        $items,
+                        $request,
+                        $form,
+                        $doc_entry
+                    );
+                } // Details
+                $is_approval = $request->approval;
+                DB::commit();
+                if ($is_approval) {
+                    $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
+                    return $this->submitApproval($header, $details, $request);
+                } else {
+                    return $this->success([
+                        "U_DocEntry" => $doc_entry
+                    ], ($doc_entry != 'null') ? "Data updated!" : "Data inserted!");
+                }
             } else {
-                return response()->json([
-                    "errors" => true,
-                    "message" => "Failed process header!"
-                ]);
+                $this->error("Failed process header!", '422');
             }
         } catch (\Exception $exception) {
             DB::rollBack();
