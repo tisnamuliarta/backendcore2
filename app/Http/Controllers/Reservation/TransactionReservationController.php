@@ -886,7 +886,7 @@ class TransactionReservationController extends Controller
             if ($this->validateDetails($details, $form)['error']) {
                 return $this->error($this->validateDetails($details, $form)['message'], '422');
             }
-            
+
             // set created at
             $created = (!empty($header)) ? $header->created_at : Carbon::now();
             $doc_entry = $this->processHeaderDoc($header, $created, $request);
@@ -904,6 +904,7 @@ class TransactionReservationController extends Controller
                     );
                 } // Details
                 $is_approval = $request->approval;
+                //return response()->json($is_approval);
                 DB::commit();
                 if ($is_approval) {
                     $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
@@ -1015,9 +1016,9 @@ class TransactionReservationController extends Controller
         $reservation_code = '';
         //return response()->json($list_code->collect()['Data'] );
         foreach ($list_code->collect()['Data'] as $datum) {
-            if ($datum['Name'] == 'E-RESERVATION NPB' && $form->RequestType == 'Ready Stock') {
+            if ($datum['Name'] == 'E-RESERVATION NPB' && $form->ItemType == 'Ready Stock') {
                 $reservation_code = $datum['Code'];
-            } else {
+            } elseif ($datum['Name'] == 'E-RESERVATION SPB') {
                 $reservation_code = $datum['Code'];
             }
 
@@ -1027,6 +1028,9 @@ class TransactionReservationController extends Controller
 //                $reservation_code = $datum['Code'];
 //            }
         }
+
+        //return response()->json($list_code->collect()['Data']);
+        //return response()->json($reservation_code);
 
         $username = $request->user()->username;
         $company_code = $request->user()->company_code;
@@ -1070,12 +1074,12 @@ class TransactionReservationController extends Controller
             return $this->error($response->collect()['Message'], '422');
         }
 
+        //return response()->json($response->collect());
+
         ReservationHeader::where('U_DocEntry', '=', $form->U_DocEntry)
             ->update([
                 'ApprovalStatus' => 'W'
             ]);
-
-        DB::commit();
 
         return $this->success([
             "U_DocEntry" => $form->U_DocEntry

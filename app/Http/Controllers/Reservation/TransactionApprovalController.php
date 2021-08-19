@@ -29,11 +29,6 @@ class TransactionApprovalController extends Controller
         $employee_code = $request->user()->employee_code;
         $status_approval = $request->status_approval;
 
-        $headers = [
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json'
-        ];
-
         $documents = Http::post(env('CHERRY_REQ'), [
                 'CommandName' => 'GetList',
                 'ModelCode' => 'ApprovalRequests',
@@ -214,6 +209,8 @@ class TransactionApprovalController extends Controller
                 ]
             ]
         ]);
+
+        //return response()->json($collect);
 
         $arr_result = [];
         foreach ($list_code->collect()['Data'] as $datum) {
