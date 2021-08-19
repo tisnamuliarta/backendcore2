@@ -1026,7 +1026,7 @@ class TransactionReservationController extends Controller
 //                $reservation_code = $datum['Code'];
 //            } elseif ($datum['Name'] == 'E-RESERVATION NORMAL') {
 //                $reservation_code = $datum['Code'];
-//            }
+//
         }
 
         //return response()->json($list_code->collect()['Data']);
