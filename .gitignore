@@ -6,6 +6,7 @@
 /public/attachment/docs
 /public/attachment/NPB
 /public/report
+/public/documents
 .env
 .env.backup
 .phpunit.result.cache
