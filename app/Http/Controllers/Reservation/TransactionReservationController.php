@@ -615,25 +615,26 @@ class TransactionReservationController extends Controller
         }
 
         if ($docs) {
-            $docs->U_DocEntry = $doc_entry;
-            $docs->LineNum = $index;
-            $docs->ItemCode = $items["ItemCode"];
-            $docs->ItemName = $items["ItemName"];
-            $docs->ItemCategory = $items["ItemCategory"];
-            $docs->UoMCode = $items["UoMCode"];
-            $docs->WhsCode = $items["WhsCode"];
-            $docs->ReqQty = $items["ReqQty"];
-            $docs->ReqDate = date('Y-m-d', strtotime($items["ReqDate"]));
-            $docs->ReqNotes = $items["ReqNotes"];
-            $docs->OtherResvNo = $items["OtherResvNo"];
-            $docs->OIGRDocNum = $items["OIGRDocNum"];
-            $docs->InvntItem = $items["InvntItem"];
-            $docs->RequestType = $request_type;
-            $docs->save();
-            return $docs->LineEntry;
+            DB::connection('laravelOdbc')
+                ->table('RESV_D')
+                ->where('LineEntry', '=', $last_data)
+                ->update([
+                    'U_DocEntry' => $doc_entry,
+                    'LineNum' => $index,
+                    'ItemCode' => $items["ItemCode"],
+                    'ItemName' => $items["ItemName"],
+                    'ItemCategory' => $items["ItemCategory"],
+                    'UoMCode' => $items["UoMCode"],
+                    'WhsCode' => $items["WhsCode"],
+                    'ReqQty' => $items["ReqQty"],
+                    'ReqDate' => date('Y-m-d', strtotime($items["ReqDate"])),
+                    'ReqNotes' => $items["ReqNotes"],
+                    'OtherResvNo' => $items["OtherResvNo"],
+                    'OIGRDocNum' => $items["OIGRDocNum"],
+                    'InvntItem' => $items["InvntItem"],
+                    'RequestType' => $request_type,
+                ]);
         } else {
-            $line_entry = ReservationDetails::orderBy("LineEntry", "DESC")->first();
-
             $docs = new ReservationDetails();
             $docs->U_DocEntry = $doc_entry;
             $docs->LineNum = $index;
@@ -653,8 +654,8 @@ class TransactionReservationController extends Controller
             $docs->RequestType = $request_type;
             $docs->save();
 
-            return $docs->LineEntry;
         }
+        return $docs->LineEntry;
     }
 
     /**

@@ -29,6 +29,7 @@ class CherryApprovalController extends Controller
      */
     public function callback(Request $request)
     {
+        DB::beginTransaction();
         try {
             $document_id = $request->DocumentReferenceID;
             $status = $request->StatusId;
@@ -63,7 +64,7 @@ class CherryApprovalController extends Controller
                             'ApprovalStatus' => 'N'
                         ]);
                 }
-
+                DB::commit();
                 return response()->json([
                     'error' => false,
                     'message' => 'Document updated!'
@@ -75,6 +76,7 @@ class CherryApprovalController extends Controller
                 ], 422);
             }
         } catch (\Exception $exception) {
+            DB::rollBack();
             return response()->json([
                 'error' => true,
                 'message' => $exception->getMessage()
