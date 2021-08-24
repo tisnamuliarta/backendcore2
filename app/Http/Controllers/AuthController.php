@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use App\Models\Role;
 use App\Models\Permission;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -298,9 +299,10 @@ class AuthController extends Controller
      */
     public function refreshToken(Request $request)
     {
-        $user = $request->user();
-        $user->tokens()->delete();
-        return response()->json(['token' => $user->createToken($user->name)->plainTextToken], 200);
+        $token = $request->token;
+        $personal_token = PersonalAccessToken::where('token', $token)->first();
+
+        return response()->json(['token' => $personal_token->tokenAble], 200);
     }
 
     /**

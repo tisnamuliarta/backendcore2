@@ -33,8 +33,12 @@ class ReqItemController extends Controller
         $search_status = isset($request->searchStatus) ? (string)$request->searchStatus : "";
         $offset = ($pages - 1) * $row_data;
 
+        if ($search_status == 'All') {
+            $search_status = '';
+        }
+
         $result = array();
-        $db_name = env('DB_SAP');
+        $db_name = (env('DB_SAP') !== null) ? env('DB_SAP') : 'IMIP_TEST_1217';
         $connect = $this->connectHana();
         $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV';
 
@@ -48,6 +52,14 @@ class ReqItemController extends Controller
                             END AS "U_DocStatus"
                         FROM ' . $own_db_name . '."U_OITM" As T0
                         LEFT JOIN ' . $db_name . '."OITM" AS T2 ON T2."U_ItemReqNo" = T0."U_DocEntry"
+                        WHERE (
+                            CASE
+                                WHEN T2."ItemCode" IS NULL THEN \'Pending\'
+                                ELSE \'Approved\'
+                            END
+                        ) LIKE \'%' . $search_status . '%\'
+                        LIMIT \''.$row_data.'\'
+                        OFFSET \''.$offset.'\'
                     ';
         // dd($sql);
         $rs = odbc_exec($connect, $sql);
@@ -91,7 +103,6 @@ class ReqItemController extends Controller
         }
 
         $result["total"] = $items;
-
 
 
         $result = array_merge($result, [
@@ -220,7 +231,7 @@ class ReqItemController extends Controller
                     'U_Remarks' => $form['U_Remarks'],
                     'U_Supporting' => $form['U_Supporting'],
                 ]);
-            
+
             return $this->success([
                 "errors" => false,
             ], "Data updated!");

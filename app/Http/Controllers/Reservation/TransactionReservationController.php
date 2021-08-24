@@ -360,6 +360,18 @@ class TransactionReservationController extends Controller
                                 'message' => "Line $line: Cannot insert OtherResvNo!"
                             ];
                         }
+
+                        if ($items["ReqQty"] > $items["AvailableQty"]) {
+                            return [
+                                'error' => true,
+                                'message' => "Line $line: Request Qty Cannot Greater Than Available Qty!"
+                            ];
+                        }
+                    } else {
+                        return [
+                            'error' => true,
+                            'message' => "Line $line: NPB field cannot empty!"
+                        ];
                     }
                 } elseif ($items["ItemCategory"] != 'RS') {
                     if ($items['NPB'] == 'Y') {
@@ -929,31 +941,24 @@ class TransactionReservationController extends Controller
     /**
      * Remove the specified resource from storage.
      *
+     * @param Request $request
      * @param int $id
+     *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function destroy($id): \Illuminate\Http\JsonResponse
+    public function destroy(Request $request, $id): \Illuminate\Http\JsonResponse
     {
-        $details = ReservationDetails::where("LineEntry", "=", $id)->first();
-        if ($details) {
-            $header = ReservationHeader::where("U_DocEntry", "=", $details->U_DocEntry)->first();
-            if ($header->ApprovalStatus == '-') {
-                if (ReservationDetails::where("LineEntry", "=", $id)->first()) {
-                    ReservationDetails::where("LineEntry", "=", $id)->delete();
-                }
-                // ReservationHeader::where("U_DocEntry", "=", $id)->delete();
-                return response()->json([
-                    'message' => 'Row deleted'
-                ]);
-            } else {
-                return response()->json([
-                    'message' => 'Cannot delete row'
-                ]);
-            }
+        $doc_entry = $request->doc_entry;
+        try {
+            DB::connection('laravelOdbc')
+                ->table('RESV_D')
+                ->whereIn('LineEntry', $doc_entry)
+                ->delete();
+
+            return $this->success('Rows Deleted!');
+        } catch (\Exception $exception) {
+            return $this->error($exception->getMessage(), 422);
         }
-        return response()->json([
-            'message' => 'Row not found'
-        ]);
     }
 
     /**
@@ -1178,6 +1183,7 @@ class TransactionReservationController extends Controller
             $letter_template->setValue('REQUEST_TYPE', $header->RequestType);
             $letter_template->setValue('REQUIRED_DATE', $header->RequiredDate);
             $letter_template->setValue('WHSCODE', $header->WhsCode);
+            $letter_template->setValue('CREATEDBY', $header->CreatedName);
             $letter_template->setValue('REMARKS', $header->Memo);
             $letter_template->setValue('DATETIME', 'Print Date: ' . date('Y-m-d H:i:s'));
 
