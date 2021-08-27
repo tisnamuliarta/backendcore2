@@ -77,6 +77,7 @@ class MasterUserDataController extends Controller
         foreach ($user_division as $item) {
             $arr_user_div[] = $item->division_name;
         }
+
         $user_list = ViewEmployee::whereIn('Department', $arr_user_div)
             ->where('Company', '=', $request->user()->company)
             ->orderBy('Name')

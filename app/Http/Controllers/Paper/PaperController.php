@@ -114,6 +114,7 @@ class PaperController extends Controller
      */
     public function store(Request $request): \Illuminate\Http\JsonResponse
     {
+        DB::beginTransaction();
         try {
             if ($request->alias == 'stkpd') {
                 $check_paper = $this->checkPaperBaseIdCardAlias($request);
@@ -130,8 +131,10 @@ class PaperController extends Controller
             $paper = new Paper();
             $this->saveData($paper, $request, 'post');
 
+            DB::commit();
             return $this->success('', 'Data Saved!');
         } catch (\Exception $exception) {
+            DB::rollBack();
             return $this->error($exception->getMessage(), '422', [
                 'trace' => $exception->getTrace(),
             ]);
@@ -162,12 +165,14 @@ class PaperController extends Controller
      */
     public function update(Request $request, $id)
     {
+        DB::beginTransaction();
         try {
             $paper = Paper::where('id', '=', $id)->first();
             $this->saveData($paper, $request, 'update');
-
+            DB::commit();
             return $this->success('Data Saved');
         } catch (\Exception $exception) {
+            DB::rollBack();
             return $this->error($exception->getMessage(), '422', [
                 'trace' => $exception->getTrace(),
             ]);
@@ -396,6 +401,8 @@ class PaperController extends Controller
         $paper->created_by = $username;
         $paper->paper_date = array_key_exists('paper_date', $request->form) ? $request->form['paper_date'] : null;
         $paper->save();
+
+        return $paper;
     }
 
     /**
