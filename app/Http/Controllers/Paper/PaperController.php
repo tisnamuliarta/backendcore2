@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Paper;
 use App\Http\Controllers\Controller;
 use App\Models\MasterPaper;
 use App\Models\Paper;
+use App\Traits\CherryApproval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,8 @@ use Webklex\PDFMerger\Facades\PDFMergerFacade as PDFMerger;
 
 class PaperController extends Controller
 {
+    use CherryApproval;
+
     /**
      * Display a listing of the resource.
      *
@@ -129,10 +132,21 @@ class PaperController extends Controller
             }
 
             $paper = new Paper();
-            $this->saveData($paper, $request, 'post');
+            $paper = $this->saveData($paper, $request, 'post');
+
+            $paper = Paper::leftJoin('master_papers', 'papers.master_paper_id', 'master_papers.id')
+                ->select('papers.*', 'master_papers.name as paper_type', 'master_papers.alias as paper_alias')
+                ->where('papers.id', '=', $paper->id)
+                ->first();
+
+            $response_approval = $this->submitPaperApproval($paper, $request);
 
             DB::commit();
-            return $this->success('', 'Data Saved!');
+            if ($response_approval['error']) {
+                return $this->error($response_approval['message']);
+            } else {
+                return $this->success([], $response_approval['message']);
+            }
         } catch (\Exception $exception) {
             DB::rollBack();
             return $this->error($exception->getMessage(), '422', [
@@ -358,6 +372,8 @@ class PaperController extends Controller
      * @param $paper
      * @param $request
      * @param $type
+     *
+     * @return mixed
      */
     protected function saveData($paper, $request, $type)
     {

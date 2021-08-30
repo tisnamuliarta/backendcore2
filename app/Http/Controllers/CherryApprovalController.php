@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Paper;
 use App\Traits\Approval;
 use App\Models\Resv\ReservationDetails;
 use App\Models\Resv\ReservationHeader;
@@ -35,34 +36,52 @@ class CherryApprovalController extends Controller
             $status = $request->StatusId;
 
             if ($document_id) {
+                $paper = Paper::where('paper_no', '=', $document_id)->first();
                 if ($status == 'Approved') {
-                    DB::connection('laravelOdbc')
-                        ->table('RESV_H')
-                        ->where('DocNum', '=', $document_id)
-                        ->update([
-                            'ApprovalStatus' => 'Y',
-                            'DocStatus' => 'O'
-                        ]);
+                    if ($paper) {
+                        DB::connection('sqlsrv')
+                            ->table('papers')
+                            ->where('id', '=', $document_id)
+                            ->update([
+                                'status' => 'active'
+                            ]);
+                    } else {
+                        DB::connection('laravelOdbc')
+                            ->table('RESV_H')
+                            ->where('DocNum', '=', $document_id)
+                            ->update([
+                                'ApprovalStatus' => 'Y',
+                                'DocStatus' => 'O'
+                            ]);
 
-                    $data_header = ReservationHeader::select(
-                        "RESV_H.*",
-                        "RESV_H.Company as CompanyName",
-                    )
-                        ->where("RESV_H.DocNum", "=", $document_id)
-                        ->first();
+                        $data_header = ReservationHeader::select(
+                            "RESV_H.*",
+                            "RESV_H.Company as CompanyName",
+                        )
+                            ->where("RESV_H.DocNum", "=", $document_id)
+                            ->first();
 
-                    $data_details = ReservationDetails::where("U_DocEntry", "=", $data_header->U_DocEntry)
-                        ->get();
+                        $data_details = ReservationDetails::where("U_DocEntry", "=", $data_header->U_DocEntry)
+                            ->get();
 
-                    $this->createGoodsIssueRequest($data_header, $data_details);
-
+                        $this->createGoodsIssueRequest($data_header, $data_details);
+                    }
                 } elseif ($status == 'Rejected') {
-                    DB::connection('laravelOdbc')
-                        ->table('RESV_H')
-                        ->where('DocNum', '=', $document_id)
-                        ->update([
-                            'ApprovalStatus' => 'N'
-                        ]);
+                    if ($paper) {
+                        DB::connection('sqlsrv')
+                            ->table('papers')
+                            ->where('id', '=', $document_id)
+                            ->update([
+                                'status' => 'rejected'
+                            ]);
+                    } else {
+                        DB::connection('laravelOdbc')
+                            ->table('RESV_H')
+                            ->where('DocNum', '=', $document_id)
+                            ->update([
+                                'ApprovalStatus' => 'N'
+                            ]);
+                    }
                 }
                 DB::commit();
                 return response()->json([

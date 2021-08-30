@@ -188,7 +188,7 @@ class TransactionApprovalController extends Controller
                 'ParameterData' => [
                     [
                         'ParamKey' => 'DocumentReferenceID',
-                        'ParamValue' => $form->DocNum,
+                        'ParamValue' => (isset($form->DocNum)) ? $form->DocNum : $form->paper_no,
                         'Operator' => 'eq'
                     ]
                 ]
