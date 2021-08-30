@@ -41,7 +41,7 @@ class CherryApprovalController extends Controller
                     if ($paper) {
                         DB::connection('sqlsrv')
                             ->table('papers')
-                            ->where('id', '=', $document_id)
+                            ->where('paper_no', '=', $document_id)
                             ->update([
                                 'status' => 'active'
                             ]);
@@ -70,7 +70,7 @@ class CherryApprovalController extends Controller
                     if ($paper) {
                         DB::connection('sqlsrv')
                             ->table('papers')
-                            ->where('id', '=', $document_id)
+                            ->where('paper_no', '=', $document_id)
                             ->update([
                                 'status' => 'rejected'
                             ]);
