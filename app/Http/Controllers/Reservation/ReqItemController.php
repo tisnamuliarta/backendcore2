@@ -173,11 +173,11 @@ class ReqItemController extends Controller
         if ($day_val == 1) {
             return (int)$year_val . $month . sprintf("%04s", "1");
         } else {
-            $first_date = "$full_year-$month-01 00:00:00";
-            $second_date = "$full_year-$month-$end_date 00:00:00";
+            $first_date = "$full_year-$month-01 00:01:00";
+            $second_date = "$full_year-$month-$end_date 12:00:00";
             $doc_num = ReqItem::selectRaw('IFNULL("U_DocEntry", 0) as DocNum')
                 ->whereBetween(DB::raw('"U_CreatedAt"'), [$first_date, $second_date])
-                ->orderBy("U_DocEntry", "DESC")
+                ->orderBy("U_CreatedAt", "DESC")
                 ->first();
             $number = (empty($doc_num)) ? '00000000' : $doc_num->DOCNUM;
             $clear_doc_num = (int)substr($number, 4, 7);
