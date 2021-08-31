@@ -271,7 +271,7 @@ class TransactionReservationController extends Controller
         $details = collect($request->details);
         $form = $request->form;
 
-        if ($form['RequestType'] == 'Urgent' && empty($form['UrgentReason'])) {
+        if ($form['Is_Urgent'] == 'Yes' && empty($form['UrgentReason'])) {
             return $this->error("Request Type Urgent Required Reason For That!", 422);
         }
         $doc_num = null;
@@ -507,6 +507,7 @@ class TransactionReservationController extends Controller
             'Division' => $request->form['Division'],
             'Department' => $request->form['Division'],
             'UrgentReason' => $request->form['UrgentReason'],
+            'Is_Urgent' => $request->form['Is_Urgent'] ?? 'No',
         ];
         if ($header) {
             $add_data = [
@@ -879,7 +880,7 @@ class TransactionReservationController extends Controller
         $details = collect($request->details);
         $form = $request->form;
 
-        if ($form['RequestType'] == 'Urgent' && empty($form['UrgentReason'])) {
+        if ($form['Is_Urgent'] == 'Yes' && empty($form['UrgentReason'])) {
             return response()->json([
                 "errors" => true,
                 "message" => "Request Type Urgent Required Reason For That!"

@@ -143,6 +143,7 @@ class ReqItemController extends Controller
             $data->U_Remarks = $form['U_Remarks'];
             $data->U_Supporting = $form['U_Supporting'];
             $data->U_CreatedBy = $request->user()->name;
+            $data->U_DocEntry = $this->generateDocNum(date('Y-m-d H:i:s'));
             $data->save();
 
             return $this->success([
@@ -153,6 +154,35 @@ class ReqItemController extends Controller
                 "errors" => true,
                 "Trace" => $exception->getTrace()
             ]);
+        }
+    }
+
+    /**
+     * @param $sysDate
+     * @return string
+     */
+    protected function generateDocNum($sysDate): string
+    {
+        $data_date = strtotime($sysDate);
+        $year_val = date('y', $data_date);
+        $full_year = date('Y', $data_date);
+        $month = date('m', $data_date);
+        $day_val = date('j', $data_date);
+        $end_date = date('t', $data_date);
+
+        if ($day_val == 1) {
+            return (int)$year_val . $month . sprintf("%04s", "1");
+        } else {
+            $first_date = "$full_year-$month-01 00:00:00";
+            $second_date = "$full_year-$month-$end_date 00:00:00";
+            $doc_num = ReqItem::selectRaw('IFNULL("U_DocEntry", 0) as DocNum')
+                ->whereBetween(DB::raw('"U_CreatedAt"'), [$first_date, $second_date])
+                ->orderBy("U_DocEntry", "DESC")
+                ->first();
+            $number = (empty($doc_num)) ? '00000000' : $doc_num->DOCNUM;
+            $clear_doc_num = (int)substr($number, 4, 7);
+            $number = $clear_doc_num + 1;
+            return (int)$year_val . $month . sprintf("%04s", $number);
         }
     }
 
