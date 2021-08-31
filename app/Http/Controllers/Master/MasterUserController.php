@@ -151,7 +151,7 @@ class MasterUserController extends Controller
 
         //return response()->json($array_user);
         $divisions = ViewEmployee::select('Department')
-            ->where('Company', '=', 'PT IMIP')
+            ->where('Company', '=', 'Dev PT IMIP')
             ->orderBy('Department')
             ->distinct()
             ->get();
