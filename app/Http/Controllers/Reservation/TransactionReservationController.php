@@ -705,7 +705,6 @@ class TransactionReservationController extends Controller
             $header = ReservationHeader::select(
                 "RESV_H.*",
                 "RESV_H.Company As CompanyName",
-                "U_WDD1.U_Status",
                 DB::raw('
                     CASE
                         WHEN RESV_H."ApprovalStatus" = \'W\' THEN \'Waiting\'
@@ -716,10 +715,7 @@ class TransactionReservationController extends Controller
                     END AS "AppStatus"
                 ')
             )
-                ->leftJoin("U_OWDD", "U_OWDD.U_DocKey", "=", "RESV_H.U_DocEntry")
-                ->leftJoin("U_WDD1", "U_WDD1.U_WddCode", "=", "U_OWDD.U_WddCode")
                 ->where("RESV_H.U_DocEntry", "=", $id)
-                ->orderBy("U_WDD1.U_CreateDate", "DESC")
                 ->first();
 
             $arr_division = [
