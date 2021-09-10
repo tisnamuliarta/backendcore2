@@ -117,7 +117,7 @@ class MasterDataController extends Controller
         } elseif ($select_type == 'Category') {
             $sql .= ' AND T0."U_ItemType" LIKE( \'%' . $search . '%\' )';
         }
-        //return response()->json($sql);
+        // return response()->json($sql);
         $sql_count = $sql;
         $rs2 = odbc_exec($connect, $sql_count);
 

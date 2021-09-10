@@ -288,6 +288,8 @@ class TransactionReservationController extends Controller
                 return $this->error($this->validateDetails($details, $form)['message'], '422');
             }
 
+            //return response()->json($this->generateDocNum(date('Y-m-d H:i:s')));
+
             $doc_entry = $this->processHeaderDoc($header, $created, $request);
             if ($doc_entry) {
                 foreach ($details as $index => $items) {
@@ -562,7 +564,22 @@ class TransactionReservationController extends Controller
         $end_date = date('t', $data_date);
 
         if ($day_val == 1) {
-            return (int)$year_val . $month . sprintf("%04s", "1");
+            $docnum = (int)$year_val . $month . sprintf("%04s", "1");
+            $check_docnum = ReservationHeader::where('DocNum', '=', $docnum)->first();
+            if (!$docnum) {
+                return (int)$year_val . $month . sprintf("%04s", "1");
+            } else {
+                $first_date = "$full_year-$month-01";
+                $second_date = "$full_year-$month-$end_date";
+                $doc_num = ReservationHeader::selectRaw('IFNULL("DocNum", 0) as DocNum')
+                    ->whereBetween(DB::raw('"CreateDate"'), [$first_date, $second_date])
+                    ->orderBy("DocNum", "DESC")
+                    ->first();
+                $number = (empty($doc_num)) ? '00000000' : $doc_num->DOCNUM;
+                $clear_doc_num = (int)substr($number, 4, 7);
+                $number = $clear_doc_num + 1;
+                return (int)$year_val . $month . sprintf("%04s", $number);
+            }
         } else {
             $first_date = "$full_year-$month-01";
             $second_date = "$full_year-$month-$end_date";
@@ -738,7 +755,8 @@ class TransactionReservationController extends Controller
 
             $connect = $this->connectHana();
 
-            $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV_TEST';
+            $own_db_name = (env('LARAVEL_ODBC_DATABASE') !== null) ? env('LARAVEL_ODBC_DATABASE') : 'IMIP_ERESV_TEST';
+            
             $data_details = ReservationDetails::where("U_DocEntry", "=", $header['U_DocEntry'])->get();
             // dd($data_details);
             $user_company = UserCompany::leftJoin('companies', 'companies.id', 'user_companies.company_id')
@@ -793,6 +811,8 @@ class TransactionReservationController extends Controller
                         WHERE T0."LineEntry" = ' . $detail->LineEntry . '
                         ORDER BY T0."LineNum" ASC
                     ';
+
+                    // return response()->json($sql);
                 // dd($sql);
                 $rs = odbc_exec($connect, $sql);
 

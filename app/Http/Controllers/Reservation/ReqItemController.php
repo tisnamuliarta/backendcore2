@@ -40,7 +40,7 @@ class ReqItemController extends Controller
         $result = array();
         $db_name = (env('DB_SAP') !== null) ? env('DB_SAP') : 'IMIP_TEST_1217';
         $connect = $this->connectHana();
-        $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV';
+        $own_db_name = (env('LARAVEL_ODBC_DATABASE') !== null) ? env('LARAVEL_ODBC_DATABASE') : 'IMIP_ERESV_TEST';
 
         $sql = '
                         SELECT DISTINCT T0.*,
@@ -138,7 +138,7 @@ class ReqItemController extends Controller
             $data = new ReqItem();
             $data->U_Description = $form['U_Description'];
             $data->U_ItemType = $form['U_ItemType'];
-            $data->U_UoM = $form['U_UoM'];
+            $data->U_UoM = array_key_exists('U_UoM', $form) ? $form['U_UoM'] : '';
             $data->U_Status = array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending';
             $data->U_Remarks = $form['U_Remarks'];
             $data->U_Supporting = $form['U_Supporting'];
@@ -194,13 +194,13 @@ class ReqItemController extends Controller
     {
         $messages = [
             'form.U_Description' => 'Name is required!',
-            'form.U_UoM' => 'Description Status is required!',
+            // 'form.U_UoM' => 'Description Status is required!',
             'form.U_ItemType' => 'Item Type is required!',
         ];
 
         $validator = Validator::make($request->all(), [
             'form.U_Description' => 'required',
-            'form.U_UoM' => 'required',
+            // 'form.U_UoM' => 'required',
             'form.U_ItemType' => 'required',
         ], $messages);
 
@@ -256,7 +256,7 @@ class ReqItemController extends Controller
                 ->update([
                     'U_ItemType' => $form['U_ItemType'],
                     'U_Description' => $form['U_Description'],
-                    'U_UoM' => $form['U_UoM'],
+                    'U_UoM' => array_key_exists('U_UoM', $form) ? $form['U_UoM'] : '',
                     'U_Status' => array_key_exists('U_Status', $form) ? $form['U_Status'] : 'Pending',
                     'U_Remarks' => $form['U_Remarks'],
                     'U_Supporting' => $form['U_Supporting'],
