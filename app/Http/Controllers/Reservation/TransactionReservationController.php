@@ -65,7 +65,7 @@ class TransactionReservationController extends Controller
         // dd($user_id);
 
         // $db_name = env('DB_SAP');
-        $schema = (env("DB_SCHEMA") !== null) ? env("DB_SCHEMA") : 'IMIP_ERESV';
+        $schema = (env("DB_SCHEMA") !== null) ? env("DB_SCHEMA") : 'IMIP_ERESV_TEST';
 
         $result = array();
         $query = ReservationHeader::select(
@@ -738,7 +738,7 @@ class TransactionReservationController extends Controller
 
             $connect = $this->connectHana();
 
-            $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV';
+            $own_db_name = (env('LARAVEL_ODBC_USERNAME') !== null) ? env('LARAVEL_ODBC_USERNAME') : 'IMIP_ERESV_TEST';
             $data_details = ReservationDetails::where("U_DocEntry", "=", $header['U_DocEntry'])->get();
             // dd($data_details);
             $user_company = UserCompany::leftJoin('companies', 'companies.id', 'user_companies.company_id')
