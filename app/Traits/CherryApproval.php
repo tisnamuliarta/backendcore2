@@ -169,7 +169,7 @@ trait CherryApproval
                 'Date' => date('m/d/Y'),
                 'EmployeeCode' => $employee_code,
                 'DocumentReferenceID' => $form->paper_no,
-                'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore/api/callback',
+                'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore2/api/callback',
                 'DocumentContent' => $document_content,
                 'Notes' => $form->reason
             ]
