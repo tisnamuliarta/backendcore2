@@ -12,7 +12,7 @@ trait ConnectHana
         try {
             $conn = odbc_connect(
                 'hanab1imipresv',
-                'IMIP_ERESV_TEST',
+                'IMIP_ERESV',
                 'Ereserve#1234',
                 SQL_CUR_USE_ODBC
             );
