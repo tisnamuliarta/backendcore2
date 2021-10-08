@@ -9,6 +9,7 @@ class Company extends Model
 {
     use HasFactory;
 
+    protected $connection = 'sqlsrv';
     /**
      * The attributes that are mass assignable.
      *

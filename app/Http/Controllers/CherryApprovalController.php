@@ -30,13 +30,20 @@ class CherryApprovalController extends Controller
      */
     public function callback(Request $request)
     {
+//        $token = $request->bearerToken();
+//        if ($token != config('app.access_token_1')) {
+//            return $this->error('Request not authorized!', 401);
+//        }
         DB::beginTransaction();
         try {
             $document_id = $request->DocumentReferenceID;
             $status = $request->StatusId;
 
             if ($document_id) {
-                $paper = Paper::where('paper_no', '=', $document_id)->first();
+                $paper = DB::connection('sqlsrv')
+                ->table('papers')
+                ->where('paper_no', '=', $document_id)->first();
+
                 if ($status == 'Approved') {
                     if ($paper) {
                         DB::connection('sqlsrv')
@@ -64,7 +71,7 @@ class CherryApprovalController extends Controller
                         $data_details = ReservationDetails::where("U_DocEntry", "=", $data_header->U_DocEntry)
                             ->get();
 
-                        $this->createGoodsIssueRequest($data_header, $data_details);
+                        $this->createGoodsIssueRequest($data_header, $data_details, $request);
                     }
                 } elseif ($status == 'Rejected') {
                     if ($paper) {
@@ -98,7 +105,8 @@ class CherryApprovalController extends Controller
             DB::rollBack();
             return response()->json([
                 'error' => true,
-                'message' => $exception->getMessage()
+                'message' => $exception->getMessage(),
+                // 'trace' => $exception->getTrace()
             ]);
         }
     }

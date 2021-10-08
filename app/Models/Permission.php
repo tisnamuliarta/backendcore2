@@ -12,6 +12,7 @@ class Permission extends SpatiePermission
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 
     public function children()
     {

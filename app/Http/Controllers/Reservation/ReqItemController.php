@@ -38,16 +38,19 @@ class ReqItemController extends Controller
         }
 
         $result = array();
-        $db_name = (env('DB_SAP') !== null) ? env('DB_SAP') : 'IMIP_TEST_1217';
+        $sap_db = (config('app.env') == 'local') ? 'IMIP_TEST_1217' : 'IMIP_LIVE';
+        $db_name = (env('DB_SAP') !== null) ? env('DB_SAP') : $sap_db;
         $connect = $this->connectHana();
-        $own_db_name = (env('LARAVEL_ODBC_DATABASE') !== null) ? env('LARAVEL_ODBC_DATABASE') : 'IMIP_ERESV_TEST';
+        $own_db = (config('app.env') == 'local') ? 'IMIP_ERESV_TEST' : 'IMIP_ERESV';
+        $own_db_name = (env('LARAVEL_ODBC_DATABASE') !== null) ? env('LARAVEL_ODBC_DATABASE') : $own_db;
 
         $sql = '
                         SELECT DISTINCT T0.*,
                             T2."ItemCode",
                             T2."ItemName",
                             CASE
-                                WHEN T2."ItemCode" IS NULL THEN \'Pending\'
+                                WHEN T2."ItemCode" IS NULL AND T0."U_Status" = \'Pending\' THEN \'Pending\'
+                                WHEN T0."U_Status" = \'Cancel\' THEN \'Cancel\'
                                 ELSE \'Approved\'
                             END AS "U_DocStatus"
                         FROM ' . $own_db_name . '."U_OITM" As T0
@@ -58,8 +61,8 @@ class ReqItemController extends Controller
                                 ELSE \'Approved\'
                             END
                         ) LIKE \'%' . $search_status . '%\'
-                        LIMIT \''.$row_data.'\'
-                        OFFSET \''.$offset.'\'
+                        LIMIT \'' . $row_data . '\'
+                        OFFSET \'' . $offset . '\'
                     ';
         // dd($sql);
         $rs = odbc_exec($connect, $sql);
@@ -108,7 +111,7 @@ class ReqItemController extends Controller
         $result = array_merge($result, [
             "rows" => $arr,
             'documentStatus' => [
-                'All', 'Pending', 'Approved'
+                'All', 'Pending', 'Approved', 'Cancel'
             ],
             'filter' => [
                 'Item Name', 'Item Code', 'Specification', 'UoM', 'Created By'
@@ -130,7 +133,7 @@ class ReqItemController extends Controller
                 "errors" => true,
                 "validHeader" => true,
                 "message" => $this->validation($request)
-            ]);
+            ], 422);
         }
 
         $form = $request->form;
@@ -245,15 +248,19 @@ class ReqItemController extends Controller
                 "errors" => true,
                 "validHeader" => true,
                 "message" => $this->validation($request)
-            ]);
+            ], 422);
         }
 
         $form = $request->form;
         try {
-            DB::connection('laravelOdbc')
+            $query = DB::connection('laravelOdbc')
                 ->table('U_OITM')
-                ->where("U_DocEntry", "=", $form['U_DocEntry'])
-                ->update([
+                ->where("U_DocEntry", "=", $form['U_DocEntry']);
+
+            $count = $query->count();
+
+            if ($count > 0) {
+                $query->update([
                     'U_ItemType' => $form['U_ItemType'],
                     'U_Description' => $form['U_Description'],
                     'U_UoM' => array_key_exists('U_UoM', $form) ? $form['U_UoM'] : '',
@@ -262,9 +269,12 @@ class ReqItemController extends Controller
                     'U_Supporting' => $form['U_Supporting'],
                 ]);
 
-            return $this->success([
-                "errors" => false,
-            ], "Data updated!");
+                return $this->success([
+                    "errors" => false,
+                ], "Data updated!");
+            } else {
+                return $this->error('Document not found!', '404');
+            }
         } catch (\Exception $exception) {
             return $this->error($exception->getMessage(), '422', [
                 "errors" => true,

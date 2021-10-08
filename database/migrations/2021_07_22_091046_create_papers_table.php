@@ -41,7 +41,7 @@ class CreatePapersTable extends Migration
             $table->dateTime("print_date")->nullable();
             $table->unsignedBigInteger("created_by")->nullable();
             $table->string("deleted", 1)->default("N");
-            $table->string("for_self", 5)->default("Yes");
+            $table->string("for_self", 50)->default("Karyawan");
             $table->string('str_url')->nullable();
             $table->string('status', 20)->default('active');
             $table->string('created_name')->nullable();

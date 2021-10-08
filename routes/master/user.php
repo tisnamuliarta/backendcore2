@@ -33,6 +33,8 @@ Route::group(['middleware' => ['direct_permission:Users-edits']], function () {
     Route::post("remove-stages", [MasterUserDataController::class, 'removeStages']);
     Route::post("remove-whs", [MasterUserDataController::class, 'removeWhs']);
     Route::post("remove-item-groups", [MasterUserDataController::class, 'removeItemGroups']);
+
+    Route::post('sync-data', [MasterUserController::class, 'syncData']);
 });
 
 Route::apiResource("master", MasterUserController::class);

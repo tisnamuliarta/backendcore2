@@ -12,4 +12,5 @@ class Role extends SpatieRole
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 }

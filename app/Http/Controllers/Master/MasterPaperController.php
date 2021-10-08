@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
 use App\Models\MasterPaper;
+use App\Models\User;
+use App\Traits\RolePermission;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class MasterPaperController extends Controller
 {
+    use RolePermission;
+
     /**
      * Display a listing of the resource.
      *
@@ -33,13 +37,32 @@ class MasterPaperController extends Controller
         $query = MasterPaper::orderBy($sorts, $order)->select('*', 'is_active as status');
 
         $result['total'] = $query->count();
-        $all_data = $query->offset($offset)
-            ->limit($row_data)
-            ->get();
+        $query = $query->offset($offset)
+            ->limit($row_data);
+        $items = null;
+        if ($request->user()->hasAnyRole(['HRD Jakarta'])) {
+            $items = $query->where('alias', '=', 'stkpd')->get();
+        }
+
+        if ($request->user()->hasAnyRole(['Personal'])) {
+            $items = $query->whereIn('alias', ['sim', 'sik', 'srm', 'srk'])->get();
+        }
+
+        if ($request->user()->hasAnyRole(['Admin E-FORM', 'HRD Morowali'])) {
+            if ($request->user()->hasAnyRole(['Superuser'])) {
+                $items = $query->get();
+            } else {
+                $items = $query->whereIn('alias', ['sim', 'sik', 'srm', 'srk', 'smt'])->get();
+            }
+        }
+
+
+        $all_data = $query->get();
 
         return $this->success([
             'rows' => $all_data,
             $result,
+            'items' => $items,
             'filter' => ['All'],
         ]);
     }

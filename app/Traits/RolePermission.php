@@ -113,4 +113,37 @@ trait RolePermission
             }
         }
     }
+
+    /**
+     * @param $role
+     * @param $detail
+     * @param $key
+     */
+    protected function actionRemovePermission($role, $detail, $key)
+    {
+        $permission = Permission::where('name', $detail['permission'] . '-' . $key)
+            ->first();
+
+        if ($permission) {
+            $role->revokePermissionTo($detail['permission'] . '-' . $key);
+        }
+    }
+
+    /**
+     * @param $request
+     * @param $role_name
+     *
+     * @return bool
+     */
+    protected function checkRole($request, $role_name)
+    {
+        $roles = $request->user()->roles;
+
+        foreach ($roles as $role) {
+            if ($role->name == $role_name) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

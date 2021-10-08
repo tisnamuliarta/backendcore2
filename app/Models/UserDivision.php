@@ -15,4 +15,5 @@ class UserDivision extends Model
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 }

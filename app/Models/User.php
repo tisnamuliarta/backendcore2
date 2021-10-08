@@ -32,6 +32,7 @@ class User extends Authenticatable
         'company_code',
         'employee_code',
         'is_admin_subwh',
+        'is_superuser',
     ];
 
     /**

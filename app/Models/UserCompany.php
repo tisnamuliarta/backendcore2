@@ -15,6 +15,7 @@ class UserCompany extends Model
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo

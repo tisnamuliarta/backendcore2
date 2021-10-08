@@ -65,7 +65,7 @@ class TransactionReservationController extends Controller
         // dd($user_id);
 
         // $db_name = env('DB_SAP');
-        $schema = (env("DB_SCHEMA") !== null) ? env("DB_SCHEMA") : 'IMIP_ERESV_TEST';
+        $schema = (env("DB_SCHEMA") !== null) ? env("DB_SCHEMA") : 'IMIP_ERESV';
 
         $result = array();
         $query = ReservationHeader::select(
@@ -122,10 +122,11 @@ class TransactionReservationController extends Controller
             })
             ->when($username, function ($query) use (
                 $username,
-                $user_id
+                $user_id,
+                $request
             ) {
                 $data_query = $query;
-                if ($user_id != 'manager') {
+                if ($request->user()->is_superuser == 'No') {
                     $data_query->where("RESV_H.CreatedBy", "=", $user_id);
                 }
                 return $data_query;
@@ -133,15 +134,19 @@ class TransactionReservationController extends Controller
 
         $result["total"] = $query->count();
 
-        $all_result = $query->offset($offset)
-            ->limit($row_data)
-            ->get();
+        if ($row_data == '-1') {
+            $all_result = $query->get();
+        } else {
+            $all_result = $query->offset($offset)
+                ->limit($row_data)
+                ->get();
+        }
         //dd($all_result);
 
         $single_data = [];
-        $db_name = '';
         foreach ($all_result as $key => $value) {
             $db_name = $value->Company;
+            //return response()->json($db_name);
             $pr_no = ($value->SAP_PRNo) ? $value->SAP_PRNo : null;
             $single_data[] = $query->select(
                 "RESV_H.*",
@@ -239,10 +244,15 @@ class TransactionReservationController extends Controller
             );
         }
 
-        $all_data = $query->orderBY('RESV_H.DocNum', $order)
-            ->offset($offset)
-            ->limit($row_data)
-            ->get();
+        if ($row_data == '-1') {
+            $all_data = $query->orderBY('RESV_H.DocNum', $order)
+                ->get();
+        } else {
+            $all_data = $query->orderBY('RESV_H.DocNum', $order)
+                ->offset($offset)
+                ->limit($row_data)
+                ->get();
+        }
 
         $filter = ["DocNum", "Company", "Req Name", "Req Type", "Req Date", "App Status"];
 
@@ -288,8 +298,6 @@ class TransactionReservationController extends Controller
                 return $this->error($this->validateDetails($details, $form)['message'], '422');
             }
 
-            //return response()->json($this->generateDocNum(date('Y-m-d H:i:s')));
-
             $doc_entry = $this->processHeaderDoc($header, $created, $request);
             if ($doc_entry) {
                 foreach ($details as $index => $items) {
@@ -306,6 +314,10 @@ class TransactionReservationController extends Controller
                 $is_approval = $request->approval;
                 DB::commit();
                 if ($is_approval) {
+                    if (empty($request->details)) {
+                        return $this->error("Details is empty!", 422);
+                    }
+
                     $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
                     //app/traits/cherryapproval.php
                     return $this->submitApproval($header, $details, $request);
@@ -648,6 +660,13 @@ class TransactionReservationController extends Controller
         }
 
         if ($docs) {
+            $check_attachment = Attachment::where('source_id', '=', $docs->LineEntry)->first();
+            if ($check_attachment) {
+                $attachment = $check_attachment->file_path;
+            } else {
+                $attachment = '';
+            }
+
             DB::connection('laravelOdbc')
                 ->table('RESV_D')
                 ->where('LineEntry', '=', $last_data)
@@ -666,6 +685,7 @@ class TransactionReservationController extends Controller
                     'OIGRDocNum' => $items["OIGRDocNum"],
                     'InvntItem' => $items["InvntItem"],
                     'RequestType' => $request_type,
+                    'U_ATTACH' => $attachment
                 ]);
         } else {
             $docs = new ReservationDetails();
@@ -710,6 +730,25 @@ class TransactionReservationController extends Controller
     }
 
     /**
+     * @param $docnum
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDocument($docnum)
+    {
+        try {
+            $document = ReservationHeader::where('DocNum', '=', $docnum)->first();
+            if ($document) {
+                return $this->success($document, 'Success');
+            } else {
+                return $this->error('Document not found!');
+            }
+        } catch (\Exception $exception) {
+            return $this->error($exception->getMessage());
+        }
+    }
+
+    /**
      * Display the specified resource.
      *
      * @param Request $request
@@ -719,9 +758,78 @@ class TransactionReservationController extends Controller
     public function show(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
         try {
+            $schema = (env("DB_SCHEMA") !== null) ? env("DB_SCHEMA") : 'IMIP_ERESV';
+            $temp_header = ReservationHeader::where("RESV_H.U_DocEntry", "=", $id)->first();
+            $db_name = $temp_header->Company;
+
             $header = ReservationHeader::select(
                 "RESV_H.*",
                 "RESV_H.Company As CompanyName",
+                DB::raw('( SELECT STRING_AGG(X."PR_NO", \', \')
+                    FROM (
+
+                        SELECT DISTINCT Q0."DocNum" AS "PR_NO"
+                        FROM ' . $db_name . '."OPRQ" Q0
+                        LEFT JOIN ' . $db_name . '."PRQ1" Q1 ON Q0."DocEntry" = Q1."DocEntry"
+                        WHERE Q1."U_DGN_IReqId"  = RESV_H."SAP_GIRNo"  AND Q0."CANCELED" =\'N\'
+
+                    ) AS X
+                 )  AS "SAP_PRNo"'),
+                DB::raw('(
+                    SELECT "U_DocNum"
+                    FROM ' . $db_name . '."@DGN_EI_OIGR"
+                    where ' . $db_name . '."@DGN_EI_OIGR"."DocNum" = RESV_H."SAP_GIRNo") AS "SAP_GIRNo"'),
+                DB::raw('
+                    (
+                        SELECT STRING_AGG(X."DocNum", \', \') as "GI_No"
+                         FROM
+                            ( SELECT DISTINCT T0."DocNum"
+                                FROM ' . $db_name . '."@DGN_EI_OIGR" G0
+                                 LEFT JOIN ' . $db_name . '."@DGN_EI_IGR1" G1 ON G0."DocEntry" = G1."DocEntry"
+                                 LEFT JOIN ' . $db_name . '."IGE1" T1
+                                           ON T1."U_DGN_IReqId" = G1."DocEntry" AND T1."U_DGN_IReqLineId" = G1."LineId"
+                                 LEFT JOIN ' . $db_name . '."OIGE" T0 ON T1."DocEntry" = T0."DocEntry"
+                                WHERE G0."DocEntry" = RESV_H."SAP_GIRNo"
+                            )  AS X
+                      ) AS  "SAP_GINo"
+                '),
+                "RESV_H.Company as U_DbCode",
+                DB::raw(
+                    '(
+                       SELECT STRING_AGG(X."PONum", \', \') AS "PONum"
+                       FROM (
+                                SELECT DISTINCT T1."DocNum" AS "PONum"
+                                FROM ' . $db_name . '."POR1" AS T0
+                                LEFT JOIN ' . $db_name . '."OPOR" AS T1 ON T0."DocEntry" = T1."DocEntry"
+                                 WHERE T0."U_DGN_IReqId"  = RESV_H."SAP_GIRNo"
+                                  AND T1."CANCELED" = \'N\'
+                            ) AS X
+                   ) AS "PONum"'
+                ),
+                DB::raw('(
+                       SELECT STRING_AGG(X."GRPO_NO", \', \') AS "GRPO_NO"
+                       FROM (
+                                 SELECT DISTINCT T1."DocNum" AS "GRPO_NO"
+                                FROM ' . $db_name . '."PDN1" AS T0
+                                LEFT JOIN ' . $db_name . '."OPDN" AS T1 ON T0."DocEntry" = T1."DocEntry"
+                                 WHERE T0."U_DGN_IReqId"  = RESV_H."SAP_GIRNo"
+                                  AND T1."CANCELED" = \'N\'
+                            ) AS X
+                   ) AS "GRPONum"
+                   '),
+                DB::raw('(
+                    SELECT STRING_AGG(X."TrfNo",\', \') AS "SAP_TrfNo"
+                    FROM
+                    (
+                        SELECT DISTINCT  T2."DocNum" AS "TrfNo"
+                        FROM ' . $schema . '."RESV_H" T0
+                        LEFT JOIN ' . $db_name . '."@DGN_EI_IGR1" G1 ON T0."SAP_GIRNo" = G1."DocEntry"
+                        LEFT JOIN  ' . $db_name . '."@DGN_EI_OIGR" G0 ON G0."DocEntry" = G1."DocEntry"
+                        LEFT JOIN ' . $db_name . '."WTR1" T1  ON G1."DocEntry" = T1."U_DGN_IReqId" AND  T1."U_DGN_IReqLineId" = G1."LineId"
+                        LEFT JOIN ' . $db_name . '."OWTR" T2 ON T1."DocEntry" = T2."DocEntry"
+                        WHERE T0."U_DocEntry" = ' . $schema . '.RESV_H."U_DocEntry"
+                    ) X
+                ) AS "SAP_TrfNo"'),
                 DB::raw('
                     CASE
                         WHEN RESV_H."ApprovalStatus" = \'W\' THEN \'Waiting\'
@@ -755,8 +863,7 @@ class TransactionReservationController extends Controller
 
             $connect = $this->connectHana();
 
-            $own_db_name = (env('LARAVEL_ODBC_DATABASE') !== null) ? env('LARAVEL_ODBC_DATABASE') : 'IMIP_ERESV_TEST';
-            
+            $own_db_name = (env('LARAVEL_ODBC_DATABASE') !== null) ? env('LARAVEL_ODBC_DATABASE') : 'IMIP_ERESV';
             $data_details = ReservationDetails::where("U_DocEntry", "=", $header['U_DocEntry'])->get();
             // dd($data_details);
             $user_company = UserCompany::leftJoin('companies', 'companies.id', 'user_companies.company_id')
@@ -773,10 +880,8 @@ class TransactionReservationController extends Controller
                                     FROM ' . $db_name . '.OITW X
                                     WHERE X."ItemCode" = T0."ItemCode" AND X."WhsCode" IN ( ' . $item_whs . ')
                                 ), 0) AS "OnHand",
-                            IFNULL(
-                                (SELECT SUM( X."OnHand")
-                                FROM ' . $db_name . '.OITW X
-                                WHERE X."ItemCode" = T0."ItemCode" AND X."WhsCode" IN ( ' . $item_whs . ')
+                            IFNULL( (SELECT SUM( X."OnHand") FROM ' . $db_name . '.OITW X  WHERE X."ItemCode" = T0."ItemCode"
+                                AND X."WhsCode" IN ( ' . $item_whs . ')
                                 ),0) - IFNULL(GIR."PendingQty",0) AS "AvailableQty",
                             T2."InvntryUom",
                             IFNULL(T2."U_ItemType", \'RS\') AS "ItemCategory",
@@ -795,6 +900,9 @@ class TransactionReservationController extends Controller
                             WHERE X0."Canceled" = \'N\' AND X0."Status" =\'O\'
                             AND X1."U_WhsCode" IN ( ' . $item_whs . ')
                             AND X1."U_ReqQty" > IFNULL(X1."U_Issued",0)
+                            AND X0."U_DocDate" >= (SELECT IFNULL("U_Value", \'20010101\') AS "MinGirDate"
+                                FROM ' . $db_name . '."@ADDON_CONFIG" AS ZZ
+                                WHERE ZZ."U_Description" = \'AVAILABLE_GROM_GIR_DATE\')
                             GROUP BY  X1."U_ItemCode"
                         ) AS GIR ON  T0."ItemCode" = GIR."U_ItemCode"
                         LEFT JOIN (
@@ -811,9 +919,9 @@ class TransactionReservationController extends Controller
                         WHERE T0."LineEntry" = ' . $detail->LineEntry . '
                         ORDER BY T0."LineNum" ASC
                     ';
-
-                    // return response()->json($sql);
+                // return response()->json($sql);
                 // dd($sql);
+                // return response()->json($sql);
                 $rs = odbc_exec($connect, $sql);
 
                 if (!$rs) {
@@ -821,6 +929,11 @@ class TransactionReservationController extends Controller
                 }
 
                 while (odbc_fetch_row($rs)) {
+                    $line_entry = odbc_result($rs, "LineEntry");
+                    $count_attachment = Attachment::where('source_id', $line_entry)
+                        ->where('type', '=', 'reservation')
+                        ->count();
+
                     $arr[] = [
                         "U_DocEntry" => odbc_result($rs, "U_DocEntry"),
                         "LineNum" => odbc_result($rs, "LineNum"),
@@ -850,6 +963,7 @@ class TransactionReservationController extends Controller
                         "InvntItem" => odbc_result($rs, "InvntItem"),
                         "SPB" => ((odbc_result($rs, "RequestType")) == 'SPB' ? 'Y' : 'N'),
                         "NPB" => ((odbc_result($rs, "RequestType")) == 'NPB' ? 'Y' : 'N'),
+                        "CountAttachment" => $count_attachment,
                     ];
                 }
             }
@@ -940,6 +1054,9 @@ class TransactionReservationController extends Controller
                 //return response()->json($is_approval);
                 DB::commit();
                 if ($is_approval) {
+                    if (empty($request->details)) {
+                        return $this->error("Details is empty!", 422);
+                    }
                     $header = ReservationHeader::where('U_DocEntry', '=', $doc_entry)->first();
                     //app/traits/cherryapproval.php
                     return $this->submitApproval($header, $details, $request);
@@ -1088,11 +1205,11 @@ class TransactionReservationController extends Controller
                 $data_letter [] = [
                     "NO" => ($index + 1),
                     "ITEMCODE" => $item->ItemCode,
-                    "ITEMNAME" => $item->ItemName,
+                    "ITEMNAME" => str_replace('&', '&amp;', $item->ItemName),
                     "UOM" => $item->UoMCode,
                     "QTY" => $item->ReqQty,
                     "DATE" => $item->ReqDate,
-                    "NOTES" => $item->ReqNotes,
+                    "NOTES" => str_replace('&', '&amp;', $item->ReqNotes),
                 ];
             }
 
@@ -1113,7 +1230,7 @@ class TransactionReservationController extends Controller
             $letter_template->setValue('REQUIRED_DATE', $header->RequiredDate);
             $letter_template->setValue('WHSCODE', $header->WhsCode);
             $letter_template->setValue('CREATEDBY', $header->CreatedName);
-            $letter_template->setValue('REMARKS', $header->Memo);
+            $letter_template->setValue('REMARKS', str_replace('&', '&amp;', $header->Memo));
             $letter_template->setValue('DATETIME', 'Print Date: ' . date('Y-m-d H:i:s'));
 
             $letter_template->cloneRowAndSetValues('NO', $data_letter);

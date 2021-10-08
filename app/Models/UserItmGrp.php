@@ -15,4 +15,5 @@ class UserItmGrp extends Model
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 }

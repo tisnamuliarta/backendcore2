@@ -15,7 +15,15 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'callback_url' => env('CALLBACK_URL', 'http://sbo2.imip.co.id:3000/backendcore/api/callback'),
+
     'db_schema' => env('DB_SCHEMA', 'IMIP_ERESV'),
+
+    'db_schema_sql' => env('DB_SCHEMASQL', 'bc_dev.dbo'),
+
+    'access_token_1' => env('ACCESS_TOKEN_1', 'n0u2YlgH2oudxPWufLViKiVk5rGumlP12iAdRFtu'),
+
+    'access_token_2' => env('ACCESS_TOKEN_1', 'aC3FIHL9K17fcdqpbqbgYmZWZ5yj7y4XbDQ587Md'),
 
     /*
     |--------------------------------------------------------------------------

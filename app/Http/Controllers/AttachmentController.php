@@ -16,7 +16,7 @@ class AttachmentController extends Controller
      */
     public function index(Request $request)
     {
-        $attachment = Attachment::where('source_id', '=', $request->source_id);
+        $attachment = Attachment::where('source_id', '=', (int)$request->source_id);
         return $this->success([
             'rows' => $attachment->get(),
             'total' => $attachment->count()
@@ -38,6 +38,14 @@ class AttachmentController extends Controller
             return $this->error($validator->errors(), '422');
         }
         try {
+            if ($request->type == 'reservation') {
+                $attachment = Attachment::where('type', '=', 'reservation')
+                    ->where('source_id', '=', $request->source_id)
+                    ->first();
+                if ($attachment) {
+                    return $this->error('Row must have 1 attachment!');
+                }
+            }
             $data_file = $request->file('file');
 
             $extension = $data_file->getClientOriginalExtension();
@@ -63,13 +71,21 @@ class AttachmentController extends Controller
             $data = [
                 'file_name' => $file_name,
                 'file_path' => url('/attachment/docs/' . $file_name),
-                'source_id' => $request->source_id,
+                'source_id' => (int)$request->source_id,
+                'str_url' => $request->source_id,
                 'created_by' => $request->user()->id,
                 'type' => $request->type
             ];
 
             $attach = Attachment::create($data);
-            return $this->success([], 'Document Uploaded!');
+
+            $count_attachment = Attachment::where('type', '=', $request->type)
+                ->where('source_id', '=', (int)$request->source_id)
+                ->count();
+
+            return $this->success([
+                'count' => $count_attachment
+            ], 'Document Uploaded!');
 
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), '422');
@@ -88,6 +104,10 @@ class AttachmentController extends Controller
                 ->first();
 
             if ($attachment) {
+                if ($attachment->created_by != $request->user()->id) {
+                    return $this->error('Not authorized to delete this file!');
+                }
+
                 $file = '/attachment/docs/' . $attachment->file_name;
                 unlink(public_path() . $file);
                 Attachment::where('id', '=', $attachment->id)

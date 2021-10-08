@@ -72,7 +72,12 @@ class MasterUserDataController extends Controller
             ->get();
 
         $department = substr($request->user()->department, 0, 4);
-        $user_division = UserDivision::where('user_id', $request->user()->id)->get();
+        if ($request->user()->is_superuser == 'Yes') {
+            $user_division = UserDivision::distinct()->select('division_name')->get();
+        } else {
+            $user_division = UserDivision::where('user_id', $request->user()->id)->get();
+        }
+        // return response()->json($user_division);
         $arr_user_div = [];
         foreach ($user_division as $item) {
             $arr_user_div[] = $item->division_name;

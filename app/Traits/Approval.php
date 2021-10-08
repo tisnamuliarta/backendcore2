@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Jobs\ProcessApproval;
+use App\Models\Attachment;
 use App\Models\Resv\ApprovalApprover;
 use App\Models\Resv\ApprovalRequester;
 use App\Models\Resv\ReservationDetails;
@@ -15,9 +16,13 @@ use App\Models\UserNotification;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 trait Approval
 {
+    private $session_id;
+    private $route_id;
+
     use ConnectHana;
 
     /**
@@ -265,7 +270,7 @@ trait Approval
                 if ($approves['final']) {
                     if ($action == 'Approve') {
                         // insert to goods issue
-                        $this->createGoodsIssueRequest($data_header, $data_details);
+                        $this->createGoodsIssueRequest($data_header, $data_details, $request);
                         //ProcessGoodsIssueRequest::dispatch($data_header, $data_details);
                     }
                 }
@@ -650,11 +655,13 @@ trait Approval
     /**
      * @param $header
      * @param $details
+     * @param $request
      * @return array
      */
-    protected function createGoodsIssueRequest($header, $details): array
+    protected function createGoodsIssueRequest($header, $details, $request): array
     {
         // Login To Service Layer
+        // dd($this->loginServiceLayer($header['CompanyName']));
         $this->loginServiceLayer($header['CompanyName']);
         // Get Latest DocNum
         $docNum = $this->getLatestGoodsIssueRequest($header['CompanyName']);
@@ -695,6 +702,7 @@ trait Approval
 
         $param_details = [];
         foreach ($details as $detail) {
+            $attachment = Attachment::where('source_id', '=', $detail->LineEntry)->first();
             $param_details[] = [
                 "U_ItemCode" => $detail->ItemCode,
                 "U_ItemDesc" => $detail->ItemName,
@@ -707,6 +715,7 @@ trait Approval
                 "U_ItemCat" => $detail->ItemCategory,
                 "U_OthResv" => $detail->OtherResvNo,
                 "U_WhsTo" => $whs_to,
+                "U_Attach" => (isset($attachment)) ? $attachment->file_path : ''
             ];
         }
 
@@ -723,28 +732,40 @@ trait Approval
      */
     protected function loginServiceLayer($db_name)
     {
+        $curl = curl_init();
+
         $params = [
             "UserName" => env('SERVICE_LAYER_USER'),
             "Password" => env('SERVICE_LAYER_PASSWORD'),
             "CompanyDB" => $db_name,
         ];
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, "https://192.168.88.8:50000/b1s/v1/Login");
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($curl, CURLOPT_VERBOSE, 1);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($params));
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://192.168.88.8:50000/b1s/v1/Login',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS =>json_encode($params),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json',
+                'Cookie: CompanyDB=IMIP_LIVE; B1SESSION=fd8a7a2e-1b66-11ec-8000-e4434b27ec88; ROUTEID=.node1'
+            ),
+        ));
 
         $response = curl_exec($curl);
-
         $response_text = json_decode($response);
+
 
         if (property_exists($response_text, "error")) {
             return response()->json($response_text);
         } else {
-            $routeId = "";
+            $routeId = ".node1";
             curl_setopt($curl, CURLOPT_HEADERFUNCTION, function ($curl, $string) use (&$routeId) {
                 $len = strlen($string);
                 if (substr($string, 0, 10) == "Set-Cookie") {
@@ -757,19 +778,14 @@ trait Approval
             });
 
             curl_exec($curl);
-            $array = [
-                'B1SESSION' => $response_text->SessionId,
-                'ROUTEID' => $routeId,
-                "UserID" => session('UserID'),
-                "password" => session('password'),
-                "db_name" => $db_name,
-            ];
-
-            session($array);
+            curl_close($curl);
+            $this->session_id = $response_text->SessionId;
+            // $this->session_id = $response_text->SessionId;
+            $this->route_id = $routeId;
         }
 
-        $sessionId = session('B1SESSION');
-        $routeId = session('ROUTEID');
+        $sessionId = $this->session_id;
+        $routeId = $this->route_id;
         $headers[] = "Cookie: B1SESSION=" . $sessionId . "; ROUTEID=" . $routeId . ";";
         return $headers;
     }
@@ -828,9 +844,10 @@ trait Approval
      */
     protected function insertGoodsIssueRequest($params, $header): array
     {
-        $sessionId = session('B1SESSION');
-        $routeId = session('ROUTEID');
+        $sessionId = $this->session_id;
+        $routeId = $this->route_id;
         $headers[] = "Cookie: B1SESSION=" . $sessionId . "; ROUTEID=" . $routeId . ";";
+
         $curl = curl_init();
         $url = "https://192.168.88.8:50000/b1s/v1/DGN_EI_IGR";
         curl_setopt($curl, CURLOPT_URL, $url);

@@ -9,6 +9,7 @@ Route::get('max-doc-resv', [TransactionReservationController::class, 'maxDocResv
 Route::get('fetch-docnum', [TransactionReservationController::class, 'fetchDocNum']);
 Route::get('approval-list', [TransactionApprovalController::class, 'index']);
 Route::get('approval-stages', [TransactionApprovalController::class, 'approvalStages']);
+Route::get('document/{document}', [TransactionReservationController::class, 'getDocument']);
 
 Route::delete('delete-all/{id}', [TransactionReservationController::class, 'deleteAll']);
 

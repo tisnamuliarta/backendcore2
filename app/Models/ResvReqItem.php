@@ -15,4 +15,5 @@ class ResvReqItem extends Model
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 }

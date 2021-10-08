@@ -7,10 +7,12 @@ use App\Models\Company;
 use App\Models\User;
 use App\Models\UserApp;
 use App\Models\UserCompany;
+use App\Models\UserDivision;
 use App\Models\UserItmGrp;
 use App\Models\UserWhs;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use App\Models\Role;
 use App\Models\Permission;
@@ -67,16 +69,21 @@ class AuthController extends Controller
             $app_name = (isset($request->app_name)) ? $request->app_name : 'E-RESERVATION';
 
             $user = User::where('username', $username)->first();
-            if (!$user) {
-                return $this->error('Username not registered in this Application!', 401);
-            }
 
             $apps = Application::where('app_name', $app_name)->first();
-            if (UserApp::where('user_id', $user->id)
-                    ->where('app_id', $apps->id)
-                    ->count() < 1) {
-                return $this->error('Unauthorized to access this Application!', 401);
+            if ($apps->app_name != 'E-FORM') {
+                if (!$user) {
+                    return $this->error('Username not registered in this Application!', 401);
+                }
+
+                if (UserApp::where('user_id', $user->id)
+                        ->where('app_id', $apps->id)
+                        ->count() < 1) {
+                    return $this->error('Unauthorized to access this Application!', 401);
+                }
             }
+
+            $response = '';
 
             if ($username != 'manager') {
                 $response = Http::post(env('CHERRY_TOKEN'), [
@@ -103,7 +110,7 @@ class AuthController extends Controller
 
             $company = $this->assignUserCompany($user->id);
 
-            $this->assignRolePermissionToUser($username);
+            $this->assignRolePermissionToUser($username, $apps->app_name, $response);
 
 //            if ($app_name == 'E-RESERVATION') {
 //                $this->assignUserWareHouse($user->id, $company);
@@ -116,7 +123,9 @@ class AuthController extends Controller
                 'user' => auth()->user()
             ]);
         } catch (\Exception $exception) {
-            return $this->error($exception->getMessage(), 401);
+            return $this->error($exception->getMessage(), 401, [
+                'trace' => $exception->getTrace()
+            ]);
         }
     }
 
@@ -133,7 +142,8 @@ class AuthController extends Controller
             'cherry_token' => $response['Token'],
             'username' => $response['UserName'],
             'password' => bcrypt($password),
-            'email' => $response['Data']['Email'],
+            'email' => !empty($response['Data']['Email']) ? $response['Data']['Email']
+                : strtotime(date('Y-m-d H:i:s')) . '@imip.co.id',
             'department' => $response['Data']['Organization'],
             'company' => $response['Data']['Company'],
             'position' => $response['Data']['Position'],
@@ -329,15 +339,18 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
+        $user = User::where('id', '=', $request->user()->id)->with('roles')->first();
         return response()->json([
-            'user' => $request->user()
+            'user' => $user
         ]);
     }
 
     /**
      * @param $username
+     * @param $app_name
+     * @param $response
      */
-    protected function assignRolePermissionToUser($username)
+    protected function assignRolePermissionToUser($username, $app_name, $response)
     {
         if ($username == 'manager') {
             $role = Role::where('name', 'Superuser')->first();
@@ -348,5 +361,62 @@ class AuthController extends Controller
                 $user->givePermissionTo($permission->name);
             }
         }
+
+        if ($app_name == 'E-FORM') {
+            $user = User::where('username', $username)->first();
+            $check_role = DB::table('model_has_roles')
+                ->where('model_id', '=', $user->id)
+                ->where('model_type', '=', 'App\Models\User')
+                ->count();
+            if ($check_role < 1) {
+                $role = Role::where('name', 'Personal')->first();
+                $user->assignRole($role);
+
+                $data = $response['Data']['Organization'];
+                if (UserDivision::where('user_id', $user->id)->count() > 0) {
+                    UserDivision::where('user_id', $user->id)->delete();
+                }
+
+                if ($data) {
+                    UserDivision::updateOrCreate([
+                        'user_id' => $user->id,
+                        'division_name' => $response['Data']['Organization']
+                    ]);
+                }
+
+                $apps = $app_name;
+                if (UserApp::where('user_id', $user->id)->count() > 0) {
+                    UserApp::where('user_id', $user->id)->delete();
+                }
+
+                if ($apps) {
+                    $id = Application::where('app_name', '=', $app_name)->first();
+                    UserApp::updateOrCreate([
+                        'user_id' => $user->id,
+                        'app_id' => $id->id
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Display a listing of permissions from current logged user.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function permissions(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json(auth()->user()->getAllPermissions()->pluck('name'));
+    }
+
+    /**
+     * Display a listing of roles from current logged user.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function roles(): \Illuminate\Http\JsonResponse
+    {
+        return response()->json(auth()->user()->getRoleNames());
     }
 }

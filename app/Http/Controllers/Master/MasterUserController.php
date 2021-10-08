@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\UserApp;
+use App\Models\Application;
+use App\Models\Role;
 use App\Models\UserDivision;
 use App\Models\ViewEmployee;
 use App\Traits\ConnectHana;
 use App\Models\User;
+use App\Models\UserWorkLocation;
 use App\Traits\MasterData;
 use App\Traits\RolePermission;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class MasterUserController extends Controller
 {
@@ -127,6 +132,8 @@ class MasterUserController extends Controller
                 $arr_item_group[] = $item_group->item_group;
             }
 
+            $item_work_location = UserWorkLocation::where('user_id', $item->id)->pluck('work_location');
+
             $array_user[] = [
                 'Action' => $item->Action,
                 'active' => $item->active,
@@ -136,6 +143,7 @@ class MasterUserController extends Controller
                 'email' => $item->email,
                 'id' => $item->id,
                 'is_admin_subwh' => $item->is_admin_subwh,
+                'is_superuser' => $item->is_superuser,
                 'location' => $item->location,
                 'name' => $item->name,
                 'position' => $item->position,
@@ -145,13 +153,14 @@ class MasterUserController extends Controller
                 'apps' => $arr_user_app,
                 'division' => $arr_user_division,
                 'item_group' => $arr_item_group,
-                'whs' => $arr_user_whs
+                'whs' => $arr_user_whs,
+                'work_location' => $item_work_location
             ];
         }
 
         //return response()->json($array_user);
         $divisions = ViewEmployee::select('Department')
-            ->where('Company', '=', 'Dev PT IMIP')
+            ->where('Company', '=', $request->user()->company)
             ->orderBy('Department')
             ->distinct()
             ->get();
@@ -163,10 +172,13 @@ class MasterUserController extends Controller
             ];
         }
 
+        $work_location = ViewEmployee::distinct()->pluck('WorkLocation');
+
         $result = array_merge($result, [
             "rows" => $array_user,
             "filter" => ['Username', 'Name', 'Department'],
             'division' => $arr_division,
+            'work_location' => $work_location
         ]);
         return response()->json($result);
     }
@@ -197,7 +209,8 @@ class MasterUserController extends Controller
             $data = [
                 'username' => $form['username'],
                 'is_admin_subwh' => $form['is_admin_subwh'],
-                'email' => strtotime(date('Y-m-d H:i:s')) .'@imip.co.id',
+                'is_superuser' => $form['is_superuser'],
+                'email' => strtotime(date('Y-m-d H:i:s')) . '@imip.co.id',
                 'active' => $form['active'],
             ];
 
@@ -295,6 +308,8 @@ class MasterUserController extends Controller
         $this->storeUseWhs($request, $user);
 
         $this->storeUserItemGroups($request, $user);
+
+        $this->storeUserWorkLocation($request, $user);
     }
 
     /**
@@ -318,6 +333,7 @@ class MasterUserController extends Controller
             $data = [
                 'username' => $form['username'],
                 'is_admin_subwh' => $form['is_admin_subwh'],
+                'is_superuser' => $form['is_superuser'],
                 'active' => $form['active'],
             ];
 
@@ -357,5 +373,79 @@ class MasterUserController extends Controller
         return $this->error('Row not found', 422, [
             "errors" => true
         ]);
+    }
+
+    public function syncData(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $check_user = User::where('username', '<>', 'manager')->pluck('username');
+            $employees = ViewEmployee::where('Company', 'LIKE', '%PT IMIP%')
+                ->whereNotIn('Nik', $check_user)
+                ->get();
+
+            foreach($employees as $employee) {
+                $password = '1234';
+                $email = (!empty($employee->OfficeEmailAddress)) ? $employee->OfficeEmailAddress : Str::random(20) . '@imip.co.id';
+                if(User::where('email', '=', $employee->OfficeEmailAddress)->count() > 0 ) {
+                    $email = Str::random(20) . '@imip.co.id';
+                }
+                $data = [
+                    'name' => $employee->Name,
+                    'username' => $employee->Nik,
+                    'password' => bcrypt($password),
+                    'email' => $email,
+                    'department' => $employee->Department,
+                    'company' => $employee->Company,
+                    'position' => $employee->JobPosition,
+                    'location' => $employee->WorkLocation,
+                ];
+
+                if (User::where('username', '=', $employee->Nik)->first()) {
+                    $user = User::where('username', '=', $employee->Nik)
+                        ->update($data);
+                } else {
+                    $user = User::create($data);
+                }
+
+                $user = User::where('username', $user->username)->first();
+                $check_role = DB::table('model_has_roles')
+                    ->where('model_id', '=', $user->id)
+                    ->where('model_type', '=', 'App\Models\User')
+                    ->count();
+
+                if ($check_role < 1) {
+                    $role = Role::where('name', 'Personal')->first();
+                    $user->assignRole($role);
+
+                    $data = $employee->Department;
+                    if (UserDivision::where('user_id', $user->id)->count() > 0) {
+                        UserDivision::where('user_id', $user->id)->delete();
+                    }
+
+                    if ($data) {
+                        UserDivision::updateOrCreate([
+                            'user_id' => $user->id,
+                            'division_name' => $employee->Department
+                        ]);
+                    }
+
+                    if (UserApp::where('user_id', $user->id)->count() > 0) {
+                        UserApp::where('user_id', $user->id)->delete();
+                    }
+
+                    $id = Application::where('app_name', '=', 'E-FORM')->first();
+                    UserApp::updateOrCreate([
+                        'user_id' => $user->id,
+                        'app_id' => $id->id
+                    ]);
+                }
+            }
+            DB::commit();
+            return $this->success([], 'Data Sync!');
+        } catch(\Exception $exception) {
+            DB::rollBack();
+            return $this->error($exception->getMessage());
+        }
     }
 }

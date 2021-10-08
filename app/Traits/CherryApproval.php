@@ -53,10 +53,12 @@ trait CherryApproval
             'username' => $username,
             'token' => $cherry_token,
             'companyCode' => $company_code,
-            'q' => $form->RequesterName
+            'q' => $form->RequesterName,
+            'locationCode' => 'undefined'
         ]);
 
         $employee_code = '';
+        // return response()->json($response->collect());
         foreach ($response->collect() as $item) {
             if ($item['Nik'] == $form->Requester) {
                 $employee_code = $item['EmployeeCode'];
@@ -82,7 +84,7 @@ trait CherryApproval
                 'Date' => date('m/d/Y'),
                 'EmployeeCode' => $employee_code,
                 'DocumentReferenceID' => $form->DocNum,
-                'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore2/api/callback',
+                'CallBackAccessToken' => config('app.access_token_1'),
                 'DocumentContent' => $document_content,
                 'Notes' => $form->Memo
             ]
@@ -110,7 +112,7 @@ trait CherryApproval
      *
      * @return array
      */
-    public function submitPaperApproval($form, $request)
+    public function submitPaperApproval($form, $request): array
     {
         $cherry_token = $request->user()->cherry_token;
         $list_code = Http::post(env('CHERRY_REQ'), [
@@ -118,13 +120,15 @@ trait CherryApproval
             'ModelCode' => 'ExternalDocuments',
             'UserName' => $request->user()->username,
             'Token' => $cherry_token,
-            'ParameterData' => []
+            'ParameterData' => [],
         ]);
 
         $reservation_code = '';
         //return response()->json($list_code->collect()['Data'] );
         foreach ($list_code->collect()['Data'] as $datum) {
-            if ($datum['Name'] == 'E-FORM ENTRY EXIT' && ($form->paper_alias == 'sim' || $form->paper_alias == 'sik')) {
+            if ($datum['Name'] == 'E-FORM ENTRY' && $form->paper_alias == 'sim') {
+                $reservation_code = $datum['Code'];
+            } elseif ($datum['Name'] == 'E-FORM EXIT' && $form->paper_alias == 'sik') {
                 $reservation_code = $datum['Code'];
             } elseif ($datum['Name'] == 'E-FORM RAPID' &&
                 ($form->paper_alias == 'srk' || $form->paper_alias == 'srm')) {
@@ -135,13 +139,14 @@ trait CherryApproval
         $username = $request->user()->username;
         $company_code = $request->user()->company_code;
 
-        $user_name = ($form->for_self == 'Yes') ? $form->user_name : $form->created_name;
+        $user_name = ($form->for_self == 'Karyawan') ? $form->user_name : $form->created_name;
 
         $response = Http::get(env('CHERRY_CHECK_EMPLOYEE'), [
             'username' => $username,
             'token' => $cherry_token,
             'companyCode' => $company_code,
-            'q' => $user_name
+            'q' => $user_name,
+            'locationCode' => 'undefined'
         ]);
 
         $employee_code = '';
@@ -169,7 +174,7 @@ trait CherryApproval
                 'Date' => date('m/d/Y'),
                 'EmployeeCode' => $employee_code,
                 'DocumentReferenceID' => $form->paper_no,
-                'CallBackAccessToken' => 'http://sbo2.imip.co.id:3000/backendcore2/api/callback',
+                'CallBackAccessToken' => config('app.access_token_1'),
                 'DocumentContent' => $document_content,
                 'Notes' => $form->reason
             ]

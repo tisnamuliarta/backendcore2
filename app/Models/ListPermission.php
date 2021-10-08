@@ -9,5 +9,6 @@ class ListPermission extends Model
 {
     use HasFactory;
 
+    protected $connection = 'sqlsrv';
     protected $table = 'list_permissions';
 }

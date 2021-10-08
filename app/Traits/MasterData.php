@@ -4,10 +4,12 @@ namespace App\Traits;
 
 use App\Models\Application;
 use App\Models\Role;
+use App\Models\User;
 use App\Models\UserApp;
 use App\Models\UserDivision;
 use App\Models\UserItmGrp;
 use App\Models\UserWhs;
+use App\Models\UserWorkLocation;
 use Illuminate\Support\Facades\DB;
 
 trait MasterData
@@ -19,6 +21,27 @@ trait MasterData
     protected function storeUserRole($request, $user)
     {
         $roles = $request->form['role'];
+        $user_roles = User::where('id', '=', $user->id)->first();
+        foreach ($user_roles->roles as $value) {
+            foreach ($roles as $role) {
+                $id = array_key_exists('id', (array)$role) ? $role['id'] : $role;
+                $role_id = Role::where('id', '=', $id)->first();
+                if ($value->name != $role_id->name) {
+                    DB::table('model_has_roles')
+                        ->where('model_id', '=', $user->id)
+                        ->where('model_type', '=', 'App\Models\User')
+                        ->delete();
+                    $permissions = DB::select('EXEC sp_role_permissions ' . $role_id->id);
+                    foreach ($permissions as $permission) {
+                        $this->actionRemovePermission($user, (array)$permission, 'index');
+                        $this->actionRemovePermission($user, (array)$permission, 'store');
+                        $this->actionRemovePermission($user, (array)$permission, 'edits');
+                        $this->actionRemovePermission($user, (array)$permission, 'erase');
+                    }
+                }
+            }
+        }
+
         foreach ($roles as $role) {
             $id = array_key_exists('id', (array)$role) ? $role['id'] : $role;
             $role_id = Role::where('id', '=', $id)->first();
@@ -121,6 +144,29 @@ trait MasterData
                     'db_code' => env('DB_SAP'),
                     'item_group' => $id,
                     'item_group_name' => $id,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param $request
+     * @param $user
+     */
+    protected function storeUserWorkLocation($request, $user)
+    {
+        $data = $request->form['work_location'];
+
+        if (count($data) != UserWorkLocation::where('user_id', $user->id)->count()) {
+            UserWorkLocation::where('user_id', $user->id)->delete();
+        }
+
+        foreach ($data as $app) {
+            if ($app) {
+                UserWorkLocation::updateOrCreate([
+                    'user_id' => $user->id,
+                    'work_location' => $app,
+                    'created_by' => auth()->user()->id
                 ]);
             }
         }

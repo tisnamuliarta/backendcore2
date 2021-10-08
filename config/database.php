@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => env('DB_CONNECTION', 'sqlsrv'),
 
     /*
     |--------------------------------------------------------------------------
@@ -105,7 +105,10 @@ return [
             'password' => env('DB_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
-            'prefix_indexes' => true,
+            // 'prefix_indexes' => true,
+            // 'grammar' => [
+            //         'query' => App\Grammars\CustomQueryGrammarMsSql::class,
+            //     ]
         ],
 
         'sqlsrv2' => [

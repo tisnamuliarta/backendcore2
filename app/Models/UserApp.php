@@ -15,4 +15,5 @@ class UserApp extends Model
      * @var array
      */
     protected $guarded = [];
+    protected $connection = 'sqlsrv';
 }

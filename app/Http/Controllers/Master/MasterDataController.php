@@ -46,8 +46,10 @@ class MasterDataController extends Controller
 
         if ($item_type == 'Ready Stock') {
             $item_type = "('RS')";
-        } else {
+        } else if ($item_type == 'Non Ready Stock') {
             $item_type = "('NRS')";
+        } else {
+            $item_type = "('RS', 'NRS')";
         }
 
         $item_whs = '';
@@ -100,6 +102,9 @@ class MasterDataController extends Controller
                 WHERE X0."Canceled" = \'N\' AND X0."Status" =\'O\'
                 AND X1."U_WhsCode" IN ( ' . $whs . ')
                 AND X1."U_ReqQty" > IFNULL(X1."U_Issued",0)
+                AND X0."U_DocDate" >= (SELECT IFNULL("U_Value", \'20010101\') AS "MinGirDate"
+                    FROM ' . $db_name . '."@ADDON_CONFIG" AS ZZ
+                    WHERE ZZ."U_Description" = \'AVAILABLE_GROM_GIR_DATE\')
                 GROUP BY  X1."U_ItemCode"
             ) AS GIR ON  T0."ItemCode" = GIR."U_ItemCode"
             WHERE
@@ -162,7 +167,7 @@ class MasterDataController extends Controller
 
         $item_groups = UserItmGrp::where('user_id', '=', $request->user()->id)->get();
         $arr_item_groups = [];
-        $user_db = env('LARAVEL_ODBC_USERNAME');
+        $user_db = env('LARAVEL_ODBC_DATABASE');
 
         foreach ($item_groups as $item_group) {
             $sql = 'SELECT T0."ItmsGrpNam"

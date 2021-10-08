@@ -243,15 +243,15 @@ class MenuSeeder extends Seeder
 
 
         $permissions = Permission::pluck('id', 'id')
-            ->where('guard_name', '=', 'api');
+            ->all();
 
         $superuser = Role::where('name', '=', 'Superuser')->first();
         $superuser->syncPermissions($permissions);
 
 
         $permission_resv = Permission::where('app_name', '=', 'E-RESERVATION')
-            ->where('guard_name', '=', 'api')
-            ->pluck('id', 'id');
+            ->pluck('id', 'id')
+            ->all();
 
         $admin_rsv = Role::where('name', '=', 'Admin E-RESERVATION')->first();
         $admin_rsv->syncPermissions($permission_resv);
